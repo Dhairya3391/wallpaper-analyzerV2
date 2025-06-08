@@ -12,13 +12,14 @@ const socket = io({
 });
 
 // DOM Elements
-const form = document.getElementById("analyzeForm");
+const form = document.getElementById("analysisForm");
 const progressBar = document.getElementById("progressBar");
 const statusMessage = document.getElementById("statusMessage");
-const resultsContainer = document.getElementById("results");
+const resultsContainer = document.getElementById("resultsContainer");
 const errorContainer = document.getElementById("errorContainer");
 const progressSection = document.getElementById("progressSection");
 const resultsSection = document.getElementById("resultsSection");
+const submitButton = form?.querySelector('button[type="submit"]');
 
 // Validate DOM elements
 if (
@@ -26,9 +27,8 @@ if (
   !progressBar ||
   !statusMessage ||
   !resultsContainer ||
-  !errorContainer ||
   !progressSection ||
-  !resultsSection
+  !submitButton
 ) {
   console.error("Required DOM elements not found");
   showToast(
@@ -96,8 +96,7 @@ socket.on("error", (error) => {
 socket.on("progress", (data) => {
   if (data.progress >= lastProgress) {
     lastProgress = data.progress;
-    updateProgress(data.progress, data.message);
-    showDetailedProgress(data);
+    updateProgress(data);
   }
 });
 
@@ -105,102 +104,50 @@ socket.on("progress", (data) => {
 socket.on("analysis_complete", (data) => {
   console.log("Analysis complete:", data);
   displayResults(data);
-  document.getElementById("submitBtn").disabled = false;
+  enableForm();
   lastProgress = 0; // Reset progress for next analysis
 
   // Show completion message
   showToast("Analysis completed successfully!", "success");
-
-  // Update final progress details
-  showDetailedProgress(data);
 });
 
-// Form submission
-if (form) {
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    disableForm();
-    clearResults();
-
-    const formData = {
-      directory: document.getElementById("directory")?.value || "",
-      similarity_threshold: parseFloat(
-        document.getElementById("similarity")?.value || "0.9"
-      ),
-      aesthetic_threshold: parseFloat(
-        document.getElementById("threshold")?.value || "0.5"
-      ),
-      recursive: document.getElementById("recursive")?.checked || false,
-      workers: parseInt(document.getElementById("workers")?.value || "4"),
-      skip_duplicates:
-        document.getElementById("skip_duplicates")?.checked || false,
-      skip_aesthetics:
-        document.getElementById("skip_aesthetics")?.checked || false,
-      limit: parseInt(document.getElementById("limit")?.value || "0"),
-    };
-
-    try {
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Analysis failed");
-      }
-    } catch (error) {
-      console.error("Analysis error:", error);
-      showToast(error.message, "error");
-      enableForm();
-    }
-  });
-}
-
 // Helper functions
-function updateProgress(progress, message) {
-  if (progressBar) {
-    progressBar.style.width = `${progress}%`;
-    progressBar.setAttribute("aria-valuenow", progress);
-    progressBar.textContent = `${progress.toFixed(1)}%`;
-  }
-
-  if (statusMessage && message) {
-    // Create a more detailed status message with timestamp
-    const timestamp = new Date().toLocaleTimeString();
-    const statusHTML = `
-      <div class="d-flex justify-content-between align-items-center">
-        <span>${message}</span>
-        <small class="text-muted">${timestamp}</small>
-      </div>
-    `;
-    statusMessage.innerHTML = statusHTML;
-    console.log(
-      `[${timestamp}] Progress: ${progress.toFixed(1)}% - ${message}`
-    );
+function updateProgress(data) {
+  const statusMessage = document.getElementById("statusMessage");
+  if (statusMessage) {
+    statusMessage.textContent = data.message || "Processing...";
   }
 }
 
 function displayResults(data) {
-  if (!resultsContainer || !resultsSection) return;
+  if (!resultsContainer) {
+    console.error("Results container not found");
+    return;
+  }
 
   resultsContainer.innerHTML = "";
 
   // Create sections for each category
   const sections = {
     duplicates: createSection("Duplicate Images", "warning"),
-    low_quality: createSection("Low Quality Images", "danger"),
-    high_quality: createSection("High Quality Images", "success"),
-    uncategorized: createSection("Uncategorized Images", "info"),
+    nature: createSection("Nature", "success"),
+    abstract: createSection("Abstract", "primary"),
+    anime: createSection("Anime & Cartoons", "info"),
+    space: createSection("Space & Cosmic", "dark"),
+    dark: createSection("Dark & Minimal", "secondary"),
+    light: createSection("Light & Bright", "light"),
+    art: createSection("Art & Design", "danger"),
+    architecture: createSection("Architecture", "warning"),
+    technology: createSection("Technology", "primary"),
+    animals: createSection("Animals & Wildlife", "success"),
+    other: createSection("Other", "secondary"),
   };
 
   // Process duplicates
   if (data.duplicates && Array.isArray(data.duplicates)) {
     const imageGrid = document.createElement("div");
     imageGrid.className = "row row-cols-1 row-cols-md-3 g-4 mt-2";
+    imageGrid.style.display = "none"; // Initially hidden
 
     data.duplicates.forEach((group, groupIndex) => {
       group.forEach((path, index) => {
@@ -210,10 +157,27 @@ function displayResults(data) {
           similar_to: index === 0 ? "Original" : `Duplicate ${index}`,
         };
         const imageCard = createImageCard(image, "duplicates");
-        imageGrid.appendChild(imageCard);
+        if (imageCard) {
+          imageGrid.appendChild(imageCard);
+        }
       });
     });
 
+    // Add show/hide button
+    const toggleButton = document.createElement("button");
+    toggleButton.className = "btn btn-warning mb-3";
+    toggleButton.textContent = "Show Duplicate Images";
+    toggleButton.onclick = () => {
+      if (imageGrid.style.display === "none") {
+        imageGrid.style.display = "flex";
+        toggleButton.textContent = "Hide Duplicate Images";
+      } else {
+        imageGrid.style.display = "none";
+        toggleButton.textContent = "Show Duplicate Images";
+      }
+    };
+
+    sections.duplicates.appendChild(toggleButton);
     sections.duplicates.appendChild(imageGrid);
     resultsContainer.appendChild(sections.duplicates);
   }
@@ -224,6 +188,7 @@ function displayResults(data) {
       if (Array.isArray(paths) && paths.length > 0) {
         const imageGrid = document.createElement("div");
         imageGrid.className = "row row-cols-1 row-cols-md-3 g-4 mt-2";
+        imageGrid.style.display = "none"; // Initially hidden
 
         paths.forEach((path) => {
           const image = {
@@ -232,18 +197,60 @@ function displayResults(data) {
             quality_score: data.aesthetic_scores?.[path] || 0,
           };
           const imageCard = createImageCard(image, category);
-          imageGrid.appendChild(imageCard);
+          if (imageCard) {
+            imageGrid.appendChild(imageCard);
+          }
         });
 
+        // Add show/hide button
+        const toggleButton = document.createElement("button");
+        toggleButton.className = `btn btn-${getCategoryColor(category)} mb-3`;
+        toggleButton.textContent = `Show ${
+          category.charAt(0).toUpperCase() + category.slice(1)
+        } Images (${paths.length})`;
+        toggleButton.onclick = () => {
+          if (imageGrid.style.display === "none") {
+            imageGrid.style.display = "flex";
+            toggleButton.textContent = `Hide ${
+              category.charAt(0).toUpperCase() + category.slice(1)
+            } Images`;
+          } else {
+            imageGrid.style.display = "none";
+            toggleButton.textContent = `Show ${
+              category.charAt(0).toUpperCase() + category.slice(1)
+            } Images (${paths.length})`;
+          }
+        };
+
         const section = sections[category] || createSection(category, "info");
+        section.appendChild(toggleButton);
         section.appendChild(imageGrid);
         resultsContainer.appendChild(section);
       }
     });
   }
 
-  // Show results section
-  resultsSection.classList.remove("d-none");
+  // Show results section if it exists
+  if (resultsSection) {
+    resultsSection.classList.remove("d-none");
+  }
+}
+
+function getCategoryColor(category) {
+  const colors = {
+    nature: "success",
+    abstract: "primary",
+    anime: "info",
+    space: "dark",
+    dark: "secondary",
+    light: "light",
+    art: "danger",
+    architecture: "warning",
+    technology: "primary",
+    animals: "success",
+    other: "secondary",
+  };
+  return colors[category] || "info";
 }
 
 // Create a section container
@@ -334,26 +341,52 @@ function createImageCard(image, category) {
 
 // Delete an image
 function deleteImage(path) {
+  if (!path) {
+    console.error("No path provided for deletion");
+    showToast("Error: No image path provided", "error");
+    return;
+  }
+
+  console.log("Attempting to delete image:", path);
+
   if (confirm("Are you sure you want to delete this image?")) {
-    fetch(`/delete/${encodeURIComponent(path)}`, {
+    const encodedPath = encodeURIComponent(path);
+    console.log("Encoded path:", encodedPath);
+
+    fetch(`/api/delete/${encodedPath}`, {
       method: "DELETE",
     })
-      .then((response) => response.json())
+      .then((response) => {
+        console.log("Delete response status:", response.status);
+        if (!response.ok) {
+          return response.json().then((err) => Promise.reject(err));
+        }
+        return response.json();
+      })
       .then((data) => {
+        console.log("Delete response data:", data);
         if (data.success) {
           showToast("Image deleted successfully", "success");
           // Remove the image card from the UI
           const card = document.querySelector(`[data-path="${path}"]`);
           if (card) {
-            card.remove();
+            const col = card.closest(".col");
+            if (col) {
+              col.remove();
+              console.log("Removed image card from UI");
+            } else {
+              console.warn("Could not find column element to remove");
+            }
+          } else {
+            console.warn("Could not find card element to remove");
           }
         } else {
-          showToast("Failed to delete image", "error");
+          showToast(data.error || "Failed to delete image", "error");
         }
       })
       .catch((error) => {
-        console.error("Error:", error);
-        showToast("Error deleting image", "error");
+        console.error("Delete error:", error);
+        showToast(error.error || "Error deleting image", "error");
       });
   }
 }
@@ -383,6 +416,15 @@ function organizeImage(path) {
 }
 
 function showToast(message, type = "info") {
+  // Create toast container if it doesn't exist
+  let container = document.getElementById("toastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+
   const toast = document.createElement("div");
   toast.className = `toast align-items-center text-white bg-${type} border-0`;
   toast.setAttribute("role", "alert");
@@ -398,7 +440,6 @@ function showToast(message, type = "info") {
     </div>
   `;
 
-  const container = document.getElementById("toastContainer");
   container.appendChild(toast);
 
   const bsToast = new bootstrap.Toast(toast);
@@ -410,16 +451,23 @@ function showToast(message, type = "info") {
 }
 
 function disableForm() {
-  if (!form) return;
-  form.querySelectorAll("input, button").forEach((el) => (el.disabled = true));
-  if (progressBar) progressBar.style.width = "0%";
+  if (!form || !submitButton) return;
+
+  // Disable all form inputs
+  form.querySelectorAll("input, select").forEach((el) => (el.disabled = true));
+  submitButton.disabled = true;
+
+  // Reset status
   if (statusMessage) statusMessage.textContent = "Starting analysis...";
   if (progressSection) progressSection.classList.remove("d-none");
 }
 
 function enableForm() {
-  if (!form) return;
-  form.querySelectorAll("input, button").forEach((el) => (el.disabled = false));
+  if (!form || !submitButton) return;
+
+  // Enable all form inputs
+  form.querySelectorAll("input, select").forEach((el) => (el.disabled = false));
+  submitButton.disabled = false;
 }
 
 function clearResults() {
@@ -431,43 +479,54 @@ function clearResults() {
   if (resultsSection) resultsSection.classList.add("d-none");
 }
 
-// Add a new function to show detailed progress
-function showDetailedProgress(data) {
-  if (!progressSection) return;
+// Form submission
+if (form) {
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    disableForm();
+    clearResults();
 
-  // Create or update the detailed progress section
-  let detailsContainer = document.getElementById("progressDetails");
-  if (!detailsContainer) {
-    detailsContainer = document.createElement("div");
-    detailsContainer.id = "progressDetails";
-    detailsContainer.className = "mt-3";
-    progressSection.appendChild(detailsContainer);
-  }
+    const formData = {
+      directory: document.getElementById("directory")?.value || "",
+      similarity_threshold: parseFloat(
+        document.getElementById("similarity")?.value || "0.85"
+      ),
+      aesthetic_threshold: parseFloat(
+        document.getElementById("threshold")?.value || "0.8"
+      ),
+      recursive: document.getElementById("recursive")?.checked || false,
+      workers: parseInt(document.getElementById("workers")?.value || "16"),
+      skip_duplicates:
+        document.getElementById("skip_duplicates")?.checked || false,
+      skip_aesthetics:
+        document.getElementById("skip_aesthetics")?.checked || false,
+      limit: parseInt(document.getElementById("limit")?.value || "0"),
+    };
 
-  // Update the details
-  detailsContainer.innerHTML = `
-    <div class="card">
-      <div class="card-body">
-        <h6 class="card-subtitle mb-2 text-muted">Analysis Details</h6>
-        <div class="row">
-          <div class="col-md-6">
-            <p class="mb-1"><strong>Total Images:</strong> ${
-              data.total_images || 0
-            }</p>
-            <p class="mb-1"><strong>Processed:</strong> ${
-              data.processed_images || 0
-            }</p>
-          </div>
-          <div class="col-md-6">
-            <p class="mb-1"><strong>Duplicates Found:</strong> ${
-              data.duplicates?.length || 0
-            }</p>
-            <p class="mb-1"><strong>Categories:</strong> ${
-              Object.keys(data.categories || {}).length
-            }</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
+    // Validate directory path
+    if (!formData.directory || !formData.directory.trim()) {
+      showToast("Please enter a valid directory path", "error");
+      enableForm();
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Analysis failed");
+      }
+    } catch (error) {
+      console.error("Analysis error:", error);
+      showToast(error.message, "error");
+      enableForm();
+    }
+  });
 }

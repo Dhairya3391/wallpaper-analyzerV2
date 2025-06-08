@@ -18,9 +18,6 @@ from functools import lru_cache
 import torch.nn.functional as F
 from collections import defaultdict
 import time
-import sqlite3
-import json
-from datetime import datetime
 
 # Configure logging
 logging.basicConfig(
@@ -62,110 +59,6 @@ socketio = SocketIO(
 analysis_results = {}
 active_connections = set()
 
-class Database:
-    def __init__(self, db_path='wallpaper_analysis.db'):
-        self.db_path = db_path
-        self.init_db()
-
-    def init_db(self):
-        """Initialize the database with required tables"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            
-            # Create images table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS images (
-                    path TEXT PRIMARY KEY,
-                    hash TEXT,
-                    last_modified REAL,
-                    aesthetic_score REAL,
-                    category TEXT,
-                    analysis_date TEXT
-                )
-            ''')
-            
-            # Create duplicates table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS duplicates (
-                    group_id INTEGER,
-                    image_path TEXT,
-                    PRIMARY KEY (group_id, image_path),
-                    FOREIGN KEY (image_path) REFERENCES images(path)
-                )
-            ''')
-            
-            conn.commit()
-
-    def get_image_info(self, path):
-        """Get stored information for an image"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT * FROM images WHERE path = ?', (path,))
-            return cursor.fetchone()
-
-    def save_image_analysis(self, path, hash_value, aesthetic_score, category):
-        """Save or update image analysis results"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT OR REPLACE INTO images 
-                (path, hash, last_modified, aesthetic_score, category, analysis_date)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (path, hash_value, os.path.getmtime(path), aesthetic_score, 
-                 category, datetime.now().isoformat()))
-            conn.commit()
-
-    def save_duplicate_group(self, group_id, paths):
-        """Save a group of duplicate images"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            for path in paths:
-                cursor.execute('''
-                    INSERT OR REPLACE INTO duplicates (group_id, image_path)
-                    VALUES (?, ?)
-                ''', (group_id, path))
-            conn.commit()
-
-    def get_duplicate_groups(self):
-        """Get all duplicate groups"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT group_id, GROUP_CONCAT(image_path) as paths
-                FROM duplicates
-                GROUP BY group_id
-            ''')
-            return [(group_id, paths.split(',')) 
-                   for group_id, paths in cursor.fetchall()]
-
-    def get_category_images(self, category):
-        """Get all images in a category"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT path FROM images WHERE category = ?', (category,))
-            return [row[0] for row in cursor.fetchall()]
-
-    def get_modified_images(self, directory):
-        """Get list of images that have been modified since last analysis"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT path FROM images 
-                WHERE path LIKE ? AND last_modified < ?
-            ''', (f"{directory}%", os.path.getmtime(directory)))
-            return [row[0] for row in cursor.fetchall()]
-
-    def clear_directory_analysis(self, directory):
-        """Clear all analysis results for a directory"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('DELETE FROM duplicates WHERE image_path LIKE ?', (f"{directory}%",))
-            cursor.execute('DELETE FROM images WHERE path LIKE ?', (f"{directory}%",))
-            conn.commit()
-
-# Initialize database
-db = Database()
-
 @socketio.on('connect')
 def handle_connect():
     """Handle new socket connections"""
@@ -180,17 +73,30 @@ def handle_disconnect():
     logger.info(f"Client disconnected: {request.sid}")
 
 def emit_progress(progress, message=None):
-    """Emit progress updates to connected clients with error handling"""
+    """Emit progress updates to connected clients with error handling and robust type conversion"""
     try:
         with app.app_context():
+            # Explicitly ensure progress is a float. Handle potential non-numeric inputs.
+            if isinstance(progress, (int, float)):
+                progress_float = float(progress)
+            elif isinstance(progress, str):
+                try:
+                    progress_float = float(progress)
+                except ValueError:
+                    logger.error(f"Non-numeric string passed as progress: '{progress}'. Defaulting to 0.0.")
+                    progress_float = 0.0
+            else:
+                logger.error(f"Unexpected type for progress: {type(progress)}. Value: {progress}. Defaulting to 0.0.")
+                progress_float = 0.0
+
             data = {
-                'progress': progress,
+                'progress': progress_float,
                 'message': message,
                 'timestamp': time.time()
             }
             socketio.emit('progress', data)
     except Exception as e:
-        logger.error(f"Error emitting progress: {e}")
+        logger.error(f"Critical error emitting progress: {e}", exc_info=True)
 
 def emit_analysis_complete(results):
     """Emit analysis completion with error handling"""
@@ -556,6 +462,13 @@ def analyze_wallpapers(
     try:
         logger.info(f"Starting analysis of directory: {directory}")
         
+        # Optimize worker count for M1
+
+            # M1 has 8 cores, but we can use more threads for I/O operations
+        workers = 16 if torch.backends.mps.is_available() else multiprocessing.cpu_count()
+        
+        logger.info(f"Settings: similarity_threshold={similarity_threshold}, aesthetic_threshold={aesthetic_threshold}, recursive={recursive}, workers={workers}")
+
         # Get image paths
         logger.info("Scanning directory for images...")
         image_paths = get_image_paths(directory, recursive)
@@ -565,14 +478,6 @@ def analyze_wallpapers(
         if limit > 0:
             image_paths = image_paths[:limit]
             logger.info(f"Limited to {len(image_paths)} images")
-
-        # Check for modified images
-        modified_images = db.get_modified_images(directory)
-        if modified_images:
-            logger.info(f"Found {len(modified_images)} modified images")
-            # Clear analysis for modified images
-            for path in modified_images:
-                db.clear_directory_analysis(path)
 
         results = {
             'directory': directory,
@@ -598,15 +503,9 @@ def analyze_wallpapers(
                 batch = image_paths[i:i + batch_size]
                 scores = similarity_model.predict_aesthetic_batch(batch)
                 results['aesthetic_scores'].update(scores)
-                
-                # Save aesthetic scores to database
-                for path, score in scores.items():
-                    db.save_image_analysis(path, None, score, None)
-                
                 current += len(batch)
                 if progress_callback:
-                    progress_callback(current, total_images, 
-                        f"Analyzing image aesthetics ({current}/{total_images})")
+                    progress_callback(current, total_images, f"Analyzing image aesthetics ({current}/{total_images})")
             logger.info("Aesthetic analysis complete")
 
         # Check for duplicates if not skipped
@@ -616,30 +515,16 @@ def analyze_wallpapers(
                 image_paths,
                 threshold=similarity_threshold,
                 max_workers=workers,
-                progress_callback=lambda current, total, msg=None: 
-                    progress_callback(current, total, msg or f"Checking for duplicates ({current}/{total})")
+                progress_callback=lambda current, total, msg=None: progress_callback(current, total, msg or f"Checking for duplicates ({current}/{total})")
             )
             results['duplicates'] = duplicates
-            
-            # Save duplicate groups to database
-            for group_id, group in enumerate(duplicates):
-                db.save_duplicate_group(group_id, group)
-            
             logger.info(f"Found {len(duplicates)} groups of duplicate images")
 
         # Categorize wallpapers
         logger.info("Categorizing wallpapers...")
-        wallpapers = [{'path': path, 'aesthetic_score': results['aesthetic_scores'].get(path, 0.0)} 
-                     for path in image_paths]
+        wallpapers = [{'path': path, 'aesthetic_score': results['aesthetic_scores'].get(path, 0.0)} for path in image_paths]
         categories = categorizer.categorize_wallpapers(wallpapers)
         results['categories'] = categories
-        
-        # Save categories to database
-        for category, paths in categories.items():
-            for path in paths:
-                db.save_image_analysis(path, None, 
-                    results['aesthetic_scores'].get(path, 0.0), category)
-        
         logger.info("Categorization complete")
 
         results['processed_images'] = len(image_paths)
@@ -668,7 +553,7 @@ def analyze():
     try:
         data = request.get_json()
         directory = data.get('directory')
-        similarity_threshold = float(data.get('similarity_threshold', 0.85))
+        similarity_threshold = float(data.get('similarity_threshold', 0.9))
         aesthetic_threshold = float(data.get('aesthetic_threshold', 0.8))
         recursive = data.get('recursive', False)
         workers = int(data.get('workers', multiprocessing.cpu_count()))
@@ -727,42 +612,9 @@ def serve_image():
 
 @app.route('/api/results/<path:directory>')
 def get_results(directory):
-    """Get analysis results from database"""
-    try:
-        results = {
-            'directory': directory,
-            'total_images': 0,
-            'processed_images': 0,
-            'duplicates': [],
-            'aesthetic_scores': {},
-            'categories': {},
-            'errors': []
-        }
-
-        # Get all images in directory
-        image_paths = get_image_paths(directory, recursive=True)
-        results['total_images'] = len(image_paths)
-        results['processed_images'] = len(image_paths)
-
-        # Get aesthetic scores
-        with sqlite3.connect(db.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT path, aesthetic_score FROM images WHERE path LIKE ?', 
-                         (f"{directory}%",))
-            for path, score in cursor.fetchall():
-                results['aesthetic_scores'][path] = score
-
-        # Get duplicate groups
-        results['duplicates'] = db.get_duplicate_groups()
-
-        # Get categories
-        for category in ['nature', 'abstract', 'anime', 'space', 'dark', 'light', 'art', 'other']:
-            results['categories'][category] = db.get_category_images(category)
-
-        return jsonify(results)
-    except Exception as e:
-        logger.error(f"Error getting results: {e}")
-        return jsonify({'error': str(e)}), 500
+    if directory in analysis_results:
+        return jsonify(analysis_results[directory])
+    return jsonify({'error': 'Results not found'}), 404
 
 @app.route('/api/organize', methods=['POST'])
 def organize():

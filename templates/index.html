@@ -5,94 +5,237 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Wallpaper Analyzer</title>
     <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
     <link
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
       rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css"
     />
     <style>
-      .toast-container {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 1050;
-      }
-      .card-img-top {
-        height: 200px;
-        object-fit: cover;
-      }
       .progress {
         height: 25px;
+        transition: width 0.3s ease-in-out;
       }
       .progress-bar {
         transition: width 0.3s ease-in-out;
       }
+      .card {
+        transition: transform 0.2s;
+      }
+      .card:hover {
+        transform: translateY(-5px);
+      }
+      .image-card {
+        position: relative;
+      }
+      .image-card img {
+        height: 200px;
+        object-fit: cover;
+      }
+      .image-card .card-body {
+        padding: 0.5rem;
+      }
+      .image-card .card-title {
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .image-card .card-text {
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+      }
+      .image-card .btn-group {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .image-card:hover .btn-group {
+        opacity: 1;
+      }
+      .toast-container {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 1050;
+      }
+      .form-control:focus {
+        box-shadow: none;
+        border-color: #0d6efd;
+      }
+      .form-select:focus {
+        box-shadow: none;
+        border-color: #0d6efd;
+      }
+      .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+      }
+      .form-label {
+        font-weight: 500;
+        color: #495057;
+      }
+      .progress-section {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+      .progress-details {
+        margin-top: 1rem;
+        font-size: 0.9rem;
+      }
+      .badge {
+        font-weight: 500;
+      }
     </style>
   </head>
   <body>
-    <div class="container py-5">
+    <div class="container py-4">
       <h1 class="text-center mb-4">Wallpaper Analyzer</h1>
 
-      <!-- Toast Container -->
-      <div id="toastContainer" class="toast-container"></div>
+      <!-- Progress Section -->
+      <div id="progressSection" class="progress-section d-none">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="mb-0">Analysis Progress</h5>
+          <span id="statusMessage" class="text-muted"></span>
+        </div>
+        <div class="progress mb-2">
+          <div
+            id="progressBar"
+            class="progress-bar progress-bar-striped progress-bar-animated"
+            role="progressbar"
+            style="width: 0%"
+            aria-valuenow="0"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          ></div>
+        </div>
+        <div id="progressDetails" class="progress-details"></div>
+      </div>
 
       <!-- Analysis Form -->
-      <div class="card mb-4">
-        <div class="card-body">
-          <form id="analyzeForm">
-            <div class="mb-3">
-              <label for="directory" class="form-label">Directory Path</label>
-              <div class="input-group">
-                <input
-                  type="text"
-                  class="form-control"
-                  id="directory"
-                  required
-                  placeholder="Enter the path to your wallpaper directory"
-                />
-                <button class="btn btn-primary" type="submit" id="submitBtn">
-                  <i class="fas fa-search"></i> Analyze
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Progress Section -->
-      <div id="progressSection" class="card mb-4 d-none">
-        <div class="card-body">
-          <h5 class="card-title">Analysis Progress</h5>
-          <div class="progress mb-2">
-            <div
-              id="progressBar"
-              class="progress-bar progress-bar-striped progress-bar-animated"
-              role="progressbar"
-              style="width: 0%"
-              aria-valuenow="0"
-              aria-valuemin="0"
-              aria-valuemax="100"
-            >
-              0%
+      <form id="analysisForm" class="mb-4">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="directory" class="form-label"
+                >Wallpaper Directory</label
+              >
+              <input
+                type="text"
+                class="form-control"
+                id="directory"
+                placeholder="Enter directory path"
+                required
+              />
             </div>
           </div>
-          <p id="statusMessage" class="text-muted mb-0">Initializing...</p>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="workers" class="form-label">Worker Threads</label>
+              <select class="form-select" id="workers">
+                <option value="4">4 threads</option>
+                <option value="8">8 threads</option>
+                <option value="16" selected>16 threads</option>
+                <option value="32">32 threads</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group">
+              <label for="similarity" class="form-label"
+                >Similarity Threshold</label
+              >
+              <select class="form-select" id="similarity">
+                <option value="0.95">Very Strict (0.95)</option>
+                <option value="0.90">Strict (0.90)</option>
+                <option value="0.85" selected>Normal (0.85)</option>
+                <option value="0.80">Loose (0.80)</option>
+                <option value="0.75">Very Loose (0.75)</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group">
+              <label for="threshold" class="form-label"
+                >Aesthetic Threshold</label
+              >
+              <select class="form-select" id="threshold">
+                <option value="0.90">Very High (0.90)</option>
+                <option value="0.85">High (0.85)</option>
+                <option value="0.80" selected>Normal (0.80)</option>
+                <option value="0.75">Low (0.75)</option>
+                <option value="0.70">Very Low (0.70)</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group">
+              <label for="limit" class="form-label">Image Limit</label>
+              <select class="form-select" id="limit">
+                <option value="0" selected>No Limit</option>
+                <option value="100">100 images</option>
+                <option value="500">500 images</option>
+                <option value="1000">1000 images</option>
+                <option value="5000">5000 images</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="form-check form-check-inline">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="recursive"
+                checked
+              />
+              <label class="form-check-label" for="recursive"
+                >Search Subdirectories</label
+              >
+            </div>
+            <div class="form-check form-check-inline">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="skip_duplicates"
+              />
+              <label class="form-check-label" for="skip_duplicates"
+                >Skip Duplicate Detection</label
+              >
+            </div>
+            <div class="form-check form-check-inline">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="skip_aesthetics"
+              />
+              <label class="form-check-label" for="skip_aesthetics"
+                >Skip Aesthetic Analysis</label
+              >
+            </div>
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-search"></i> Analyze Wallpapers
+            </button>
+          </div>
         </div>
-      </div>
-
-      <!-- Error Container -->
-      <div id="errorContainer" class="alert alert-danger d-none mb-4"></div>
+      </form>
 
       <!-- Results Section -->
-      <div id="resultsSection" class="d-none">
-        <div id="results" class="mt-4"></div>
-      </div>
+      <div id="resultsContainer"></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="/static/js/app.js"></script>
   </body>
 </html>
