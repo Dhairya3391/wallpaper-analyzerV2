@@ -743,12 +743,6 @@
       <!-- Batch Actions -->
       <div class="batch-actions">
         <span class="selected-count">0 selected</span>
-        <button class="btn btn-danger" id="deleteSelected">
-          <i class="bi bi-trash me-2"></i>Delete
-        </button>
-        <button class="btn btn-primary" id="organizeSelected">
-          <i class="bi bi-folder me-2"></i>Organize
-        </button>
       </div>
     </div>
 
@@ -1055,25 +1049,6 @@
           score.textContent = `${(image.score * 100).toFixed(1)}%`;
           overlay.appendChild(score);
         }
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.className = "btn-floating";
-        deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
-        deleteBtn.onclick = (e) => {
-          e.stopPropagation();
-          deleteImage(image.path);
-        };
-
-        const organizeBtn = document.createElement("button");
-        organizeBtn.className = "btn-floating";
-        organizeBtn.innerHTML = '<i class="bi bi-folder"></i>';
-        organizeBtn.onclick = (e) => {
-          e.stopPropagation();
-          organizeImage(image.path);
-        };
-
-        overlay.appendChild(deleteBtn);
-        overlay.appendChild(organizeBtn);
 
         card.appendChild(img);
         card.appendChild(overlay);

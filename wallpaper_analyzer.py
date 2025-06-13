@@ -33,15 +33,19 @@ class Config:
     HOST = '0.0.0.0'
     PORT = 8000
     DEBUG = False
+    
+    # Logging settings
+    ENABLE_STDOUT_LOGGING = False
 
 # Logging setup
+handlers = [logging.FileHandler('analyzed.log')]
+if Config.ENABLE_STDOUT_LOGGING:
+    handlers.append(logging.StreamHandler())
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('analyzed.log'),
-        logging.StreamHandler()
-    ]
+    handlers=handlers
 )
 logger = logging.getLogger('WallpaperAnalyzer')
 
