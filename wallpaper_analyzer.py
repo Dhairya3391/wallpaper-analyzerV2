@@ -39,7 +39,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('wallpaper_analyzer.log'),
+        logging.FileHandler('analyzed.log'),
         logging.StreamHandler()
     ]
 )
