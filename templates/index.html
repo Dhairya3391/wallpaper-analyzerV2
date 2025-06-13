@@ -1,1336 +1,605 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wallpaper Analyzer Pro</title>
-    <!-- Bootstrap 5 CSS -->
+    <title>Wallyzer</title>
+    <!-- DaisyUI and Tailwind -->
     <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.7.2/dist/full.min.css"
       rel="stylesheet"
+      type="text/css"
     />
+    <script src="https://cdn.tailwindcss.com"></script>
     <!-- Bootstrap Icons -->
     <link
       rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
     />
-    <!-- Custom CSS -->
+    <!-- Socket.IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- Alpine.js for reactivity -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"
+    ></script>
+    <!-- GSAP for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <!-- Masonry Layout -->
+    <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
+    <script>
+      document.addEventListener("alpine:init", () => {
+        Alpine.data("app", () => ({
+          images: [],
+          loading: false,
+          searchTerm: "",
+          view: "grid",
+          showPreview: false,
+          showSettings: false,
+          previewImage: null,
+          socket: null,
+          currentTheme: "forest",
+          clusters: [],
+          themes: [
+            "light",
+            "dark",
+            "cupcake",
+            "bumblebee",
+            "emerald",
+            "corporate",
+            "synthwave",
+            "retro",
+            "cyberpunk",
+            "valentine",
+            "halloween",
+            "garden",
+            "forest",
+            "aqua",
+            "pastel",
+            "fantasy",
+            "wireframe",
+            "black",
+            "luxury",
+            "dracula",
+            "cmyk",
+            "autumn",
+            "business",
+            "acid",
+            "lemonade",
+            "night",
+            "coffee",
+            "winter",
+          ],
+          settings: {
+            directory: "/Users/dhairya/Downloads/walls",
+            similarity_threshold: 0.85,
+            aesthetic_threshold: 0.8,
+            recursive: true,
+            skip_duplicates: false,
+            skip_aesthetics: false,
+            limit: 0,
+          },
+
+          init() {
+            // Set default theme
+            document.documentElement.setAttribute("data-theme", "forest");
+
+            // Initialize Socket.IO
+            this.socket = io({
+              transports: ["websocket", "polling"],
+              reconnectionAttempts: Infinity,
+              reconnectionDelay: 1000,
+              reconnectionDelayMax: 5000,
+              timeout: 60000,
+              autoConnect: true,
+              forceNew: true,
+              pingTimeout: 60000,
+              pingInterval: 25000,
+            });
+
+            // Socket.IO event handlers
+            this.socket.on("connect", () => {
+              console.log("Connected to server");
+              this.showToast("Connected to server", "success");
+            });
+
+            this.socket.on("disconnect", () => {
+              console.log("Disconnected from server");
+              this.showToast("Disconnected from server", "error");
+            });
+
+            this.socket.on("analysis_progress", (data) => {
+              console.log("Progress:", data);
+              // Update progress if needed
+            });
+
+            this.socket.on("error", (error) => {
+              console.error("Socket.IO error:", error);
+              this.showToast(`Error: ${error.message}`, "error");
+            });
+
+            // Initialize Masonry after images are loaded
+            this.$watch("images", () => {
+              this.$nextTick(() => {
+                const grid = document.querySelector(".masonry-grid");
+                if (grid) {
+                  // Calculate row spans for each image
+                  const items = grid.querySelectorAll(".masonry-item");
+                  items.forEach((item) => {
+                    const img = item.querySelector("img");
+                    if (img) {
+                      img.onload = () => {
+                        const aspectRatio =
+                          img.naturalHeight / img.naturalWidth;
+                        const rowSpan = Math.ceil(aspectRatio * 25); // Adjust multiplier as needed
+                        item.style.setProperty("--row-span", rowSpan);
+                      };
+                    }
+                  });
+                }
+              });
+            });
+          },
+
+          changeTheme(theme) {
+            document.documentElement.setAttribute("data-theme", theme);
+            this.currentTheme = theme;
+          },
+
+          analyzeDirectory() {
+            if (!this.settings.directory) {
+              this.showToast("Please enter a directory path", "error");
+              return;
+            }
+
+            this.loading = true;
+            this.images = [];
+            this.clusters = [];
+            this.showToast("Starting analysis...", "info");
+
+            fetch("/api/analyze", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(this.settings),
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                if (data.success) {
+                  if (data.images && data.images.length > 0) {
+                    this.images = data.images;
+                    // Extract unique clusters
+                    const clusterMap = new Map();
+                    data.images.forEach((image) => {
+                      if (image.cluster !== undefined && image.cluster !== -1) {
+                        if (!clusterMap.has(image.cluster)) {
+                          clusterMap.set(image.cluster, {
+                            id: image.cluster,
+                            size: 0,
+                          });
+                        }
+                        clusterMap.get(image.cluster).size++;
+                      }
+                    });
+                    this.clusters = Array.from(clusterMap.values()).sort(
+                      (a, b) => a.id - b.id
+                    );
+                    this.showToast(
+                      `Analysis complete: ${data.images.length} images found`,
+                      "success"
+                    );
+                  } else {
+                    this.showToast(
+                      "No images found in the selected directory",
+                      "warning"
+                    );
+                  }
+                } else {
+                  this.showToast(data.error || "Analysis failed", "error");
+                }
+              })
+              .catch((error) => {
+                this.showToast(`Error: ${error.message}`, "error");
+              })
+              .finally(() => {
+                this.loading = false;
+              });
+          },
+
+          get filteredImages() {
+            let filtered = this.images.filter((image) => {
+              const matchesSearch = image.path
+                .toLowerCase()
+                .includes(this.searchTerm.toLowerCase());
+              return matchesSearch;
+            });
+
+            // Sort images by cluster and aesthetic score
+            filtered.sort((a, b) => {
+              // First sort by cluster
+              if (a.cluster !== b.cluster) {
+                return (a.cluster || 0) - (b.cluster || 0);
+              }
+              // Then by aesthetic score
+              return (b.aesthetic_score || 0) - (a.aesthetic_score || 0);
+            });
+
+            return filtered;
+          },
+
+          showToast(message, type = "info") {
+            const toast = document.createElement("div");
+            toast.className = `alert alert-${type} shadow-lg`;
+            toast.innerHTML = `
+              <div>
+                <span>${message}</span>
+              </div>
+            `;
+            document.getElementById("toast-container").appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+          },
+
+          animateImage(element) {
+            gsap.fromTo(
+              element,
+              { scale: 0.95, opacity: 0 },
+              { scale: 1, opacity: 1, duration: 0.3, ease: "power2.out" }
+            );
+          },
+
+          formatAestheticScore(score) {
+            if (score === undefined || score === null) return "N/A";
+            return (score * 100).toFixed(1) + "%";
+          },
+
+          updateMasonryLayout(img) {
+            const item = img.closest(".masonry-item");
+            if (item) {
+              const aspectRatio = img.naturalHeight / img.naturalWidth;
+              const rowSpan = Math.ceil(aspectRatio * 25);
+              item.style.setProperty("--row-span", rowSpan);
+            }
+          },
+        }));
+      });
+
+      // Handle image loading errors
+      document.addEventListener(
+        "error",
+        function (e) {
+          if (e.target.tagName === "IMG") {
+            e.target.src =
+              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjOTk5Ij5JbWFnZSBsb2FkIGVycm9yPC90ZXh0Pjwvc3ZnPg==";
+          }
+        },
+        true
+      );
+    </script>
     <style>
-      /* Unsplash-like UI */
-      :root {
-        --primary-color: #000000;
-        --secondary-color: #1a1a1a;
-        --light-color: #ffffff;
-        --dark-color: #000000;
-        --gray-100: #f8f9fa;
-        --gray-200: #e9ecef;
-        --gray-300: #dee2e6;
-        --gray-400: #ced4da;
-        --gray-500: #adb5bd;
-        --gray-600: #6c757d;
-        --gray-700: #495057;
-        --gray-800: #343a40;
-        --gray-900: #212529;
+      .masonry-grid {
+        columns: 4;
+        column-gap: 16px;
       }
-
-      /*code added for ui changes by me manually*/
-
-      /* Checked checkbox and radio */
-      .form-check-input:checked {
-        background-color: var(--primary-color);
-        border-color: var(--primary-color);
-      }
-
-      /* Focus ring for form controls */
-      .form-check-input:focus,
-      .form-control:focus,
-      .form-select:focus,
-      .form-range:focus {
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 0.25rem rgba(0, 0, 0, 0.25);
-      }
-
-      /* Inputs and selects */
-      .form-control,
-      .form-select {
-        background-color: var(--secondary-color);
-        color: var(--light-color);
-        border-color: var(--gray-700);
-      }
-
-      .form-control::placeholder {
-        color: var(--gray-500);
-      }
-
-      .form-select option {
-        background-color: var(--secondary-color);
-        color: var(--light-color);
-      }
-
-      /* Range input */
-      .form-range::-webkit-slider-thumb {
-        background-color: var(--primary-color);
-        border: none;
-      }
-
-      .form-range::-moz-range-thumb {
-        background-color: var(--primary-color);
-        border: none;
-      }
-
-      .form-range::-ms-thumb {
-        background-color: var(--primary-color);
-        border: none;
-      }
-
-      /* Optional: Track styling */
-      .form-range::-webkit-slider-runnable-track {
-        background-color: var(--gray-700);
-      }
-
-      .form-range::-moz-range-track {
-        background-color: var(--gray-700);
-      }
-
-      .form-range::-ms-track {
-        background-color: var(--gray-700);
-        border-color: transparent;
-        color: transparent;
-      }
-
-      /* Buttons */
-      .btn-primary {
-        --bs-btn-bg: var(--primary-color);
-        --bs-btn-border-color: var(--primary-color);
-        --bs-btn-hover-bg: var(--gray-800);
-        --bs-btn-hover-border-color: var(--gray-800);
-        --bs-btn-color: var(--light-color);
-      }
-
-      .btn-secondary {
-        --bs-btn-bg: var(--secondary-color);
-        --bs-btn-border-color: var(--secondary-color);
-        --bs-btn-hover-bg: var(--gray-700);
-        --bs-btn-hover-border-color: var(--gray-700);
-        --bs-btn-color: var(--light-color);
-      }
-
-      .btn-light {
-        --bs-btn-bg: var(--light-color);
-        --bs-btn-border-color: var(--light-color);
-        --bs-btn-color: var(--dark-color);
-      }
-
-      .btn-dark {
-        --bs-btn-bg: var(--dark-color);
-        --bs-btn-border-color: var(--dark-color);
-        --bs-btn-color: var(--light-color);
-      }
-
-      /* Backgrounds */
-      .bg-primary {
-        background-color: var(--primary-color) !important;
-      }
-      .bg-secondary {
-        background-color: var(--secondary-color) !important;
-      }
-      .bg-light {
-        background-color: var(--light-color) !important;
-      }
-      .bg-dark {
-        background-color: var(--dark-color) !important;
-      }
-      .bg-white {
-        background-color: var(--light-color) !important;
-      }
-
-      .bg-gray-100 {
-        background-color: var(--gray-100) !important;
-      }
-      .bg-gray-200 {
-        background-color: var(--gray-200) !important;
-      }
-      .bg-gray-300 {
-        background-color: var(--gray-300) !important;
-      }
-      .bg-gray-400 {
-        background-color: var(--gray-400) !important;
-      }
-      .bg-gray-500 {
-        background-color: var(--gray-500) !important;
-      }
-      .bg-gray-600 {
-        background-color: var(--gray-600) !important;
-      }
-      .bg-gray-700 {
-        background-color: var(--gray-700) !important;
-      }
-      .bg-gray-800 {
-        background-color: var(--gray-800) !important;
-      }
-      .bg-gray-900 {
-        background-color: var(--gray-900) !important;
-      }
-
-      /* Text */
-      .text-primary {
-        color: var(--primary-color) !important;
-      }
-      .text-secondary {
-        color: var(--secondary-color) !important;
-      }
-      .text-light {
-        color: var(--light-color) !important;
-      }
-      .text-dark {
-        color: var(--dark-color) !important;
-      }
-
-      .text-gray-100 {
-        color: var(--gray-100) !important;
-      }
-      .text-gray-200 {
-        color: var(--gray-200) !important;
-      }
-      .text-gray-300 {
-        color: var(--gray-300) !important;
-      }
-      .text-gray-400 {
-        color: var(--gray-400) !important;
-      }
-      .text-gray-500 {
-        color: var(--gray-500) !important;
-      }
-      .text-gray-600 {
-        color: var(--gray-600) !important;
-      }
-      .text-gray-700 {
-        color: var(--gray-700) !important;
-      }
-      .text-gray-800 {
-        color: var(--gray-800) !important;
-      }
-      .text-gray-900 {
-        color: var(--gray-900) !important;
-      }
-
-      /*code for ui changes ends here*/
-
-      body {
-        background-color: var(--light-color);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Helvetica, Arial, sans-serif;
-        color: var(--gray-900);
-      }
-
-      .navbar {
-        background-color: var(--light-color);
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        border-bottom: 1px solid var(--gray-200);
-        padding: 1rem 0;
-      }
-
-      .navbar-brand {
-        font-weight: 600;
-        color: var(--dark-color) !important;
-        font-size: 1.2rem;
-      }
-
-      /* Masonry Grid Layout */
-      .image-grid {
-        columns: 5 300px;
-        column-gap: 20px;
-        padding: 20px;
-        perspective: 1000px;
-      }
-
-      @media (max-width: 1400px) {
-        .image-grid {
-          columns: 4 300px;
-        }
-      }
-
       @media (max-width: 1200px) {
-        .image-grid {
-          columns: 3 300px;
+        .masonry-grid {
+          columns: 3;
         }
       }
-
-      @media (max-width: 992px) {
-        .image-grid {
-          columns: 2 300px;
+      @media (max-width: 900px) {
+        .masonry-grid {
+          columns: 2;
         }
       }
-
-      @media (max-width: 576px) {
-        .image-grid {
-          columns: 1 300px;
+      @media (max-width: 600px) {
+        .masonry-grid {
+          columns: 1;
         }
       }
-
-      .image-card {
+      .masonry-item {
         break-inside: avoid;
-        margin-bottom: 20px;
+        margin-bottom: 16px;
         position: relative;
-        border-radius: 4px;
-        overflow: hidden;
-        background: var(--light-color);
-        cursor: pointer;
-        transform-style: preserve-3d;
-        transition: transform 0.3s ease;
+        display: block;
       }
-
-      .image-card:hover {
-        transform: translateZ(10px);
+      .masonry-item:hover {
+        transform: scale(1.02);
+        z-index: 1;
       }
-
-      .image-card img {
+      .masonry-item img {
         width: 100%;
         height: auto;
         display: block;
-        object-fit: cover;
-        transition: transform 0.3s ease;
+        border-radius: 0.5rem;
+        transition: all 0.3s ease;
       }
-
-      .image-card:hover img {
-        transform: scale(1.05);
-      }
-
-      .image-card .overlay {
+      .aesthetic-score {
         position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.4);
-        opacity: 0;
-        transition: opacity 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 12px;
-      }
-
-      .image-card:hover .overlay {
-        opacity: 1;
-      }
-
-      .image-card:hover .score-indicator,
-      .image-card:hover .duplicate-indicator {
-        opacity: 1;
-      }
-
-      .btn-floating {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--light-color);
-        border: none;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        background: rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(4px);
-      }
-
-      .btn-floating:hover {
-        transform: scale(1.1);
-        background: rgba(255, 255, 255, 0.3);
-      }
-
-      /* Image Preview Modal */
-      .image-preview-modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.9);
-        z-index: 1100;
-        padding: 2rem;
-        overflow: auto;
-      }
-
-      .image-preview-modal.show {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .image-preview-content {
-        position: relative;
-        max-width: 90vw;
-        max-height: 90vh;
-      }
-
-      .image-preview-content img {
-        max-width: 100%;
-        max-height: 90vh;
-        object-fit: contain;
-      }
-
-      .image-preview-close {
-        position: absolute;
-        top: -2rem;
-        right: -2rem;
-        color: white;
-        font-size: 2rem;
-        cursor: pointer;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.1);
-        transition: background 0.2s ease;
-      }
-
-      .image-preview-close:hover {
-        background: rgba(255, 255, 255, 0.2);
-      }
-
-      .image-preview-info {
-        position: absolute;
-        bottom: -3rem;
-        left: 0;
-        right: 0;
-        color: white;
-        text-align: center;
-        opacity: 0;
-        transition: opacity 0.2s ease;
-      }
-
-      .image-preview-modal:hover .image-preview-info {
-        opacity: 1;
-      }
-
-      /* Settings Panel */
-      .settings-panel {
-        position: fixed;
-        top: 0;
-        right: -400px;
-        width: 400px;
-        height: 100vh;
-        background: var(--light-color);
-        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-        border-left: 1px solid var(--gray-200);
-        padding: 2rem;
-        transition: right 0.3s ease;
-        z-index: 1000;
-        overflow-y: auto;
-      }
-
-      .settings-panel.show {
-        right: 0;
-      }
-
-      .settings-toggle {
-        position: fixed;
-        top: 1rem;
-        right: 1rem;
-        z-index: 1001;
-        background: var(--light-color);
-        border: 1px solid var(--gray-200);
-        border-radius: 4px;
-        padding: 0.5rem 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-
-      .settings-toggle:hover {
-        background: var(--gray-100);
-      }
-
-      .settings-toggle i {
-        font-size: 1.2rem;
-      }
-
-      /* Progress Bar */
-      .progress-container {
-        background: var(--light-color);
-        border-radius: 4px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        border: 1px solid var(--gray-200);
-      }
-
-      .progress {
-        height: 2px;
-        border-radius: 1px;
-        background-color: var(--gray-200);
-      }
-
-      .progress-bar {
-        background-color: var(--dark-color);
-      }
-
-      /* Toast Notifications */
-      .toast {
-        background: var(--light-color);
-        border: none;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        border-radius: 4px;
-      }
-
-      .toast.bg-success {
-        background: var(--dark-color) !important;
-      }
-
-      .toast.bg-error {
-        background: var(--danger-color) !important;
-      }
-
-      .toast.bg-info {
-        background: var(--gray-800) !important;
-      }
-
-      /* Remove unnecessary elements */
-      .filter-bar {
-        display: none;
-      }
-
-      .batch-actions {
-        display: none;
-      }
-
-      .view-toggle {
-        display: none;
-      }
-
-      /* Category Selector */
-      .category-selector {
-        margin-bottom: 2rem;
-        padding: 1rem;
-        background: var(--light-color);
-        border-radius: 8px;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-      }
-
-      .category-selector .btn-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-
-      .category-selector .btn {
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        border: 1px solid var(--gray-200);
-        background: var(--light-color);
-        color: var(--gray-700);
-        transition: all 0.2s ease;
-      }
-
-      .category-selector .btn:hover,
-      .category-selector .btn.active {
-        background: var(--dark-color);
-        color: var(--light-color);
-        border-color: var(--dark-color);
-      }
-
-      .score-indicator {
-        position: absolute;
-        top: 10px;
-        right: 10px;
+        top: 8px;
+        right: 8px;
         background: rgba(0, 0, 0, 0.7);
         color: white;
         padding: 4px 8px;
         border-radius: 4px;
-        font-size: 0.9rem;
-        font-weight: 500;
-        backdrop-filter: blur(4px);
+        font-size: 0.875rem;
+        opacity: 0;
+        transition: opacity 0.3s ease;
         z-index: 2;
       }
-
-      .duplicate-indicator {
+      .masonry-item:hover .aesthetic-score {
+        opacity: 1;
+      }
+      .preview-info {
         position: absolute;
-        top: 10px;
-        left: 10px;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.9rem;
-        font-weight: 500;
-        z-index: 2;
-      }
-
-      .duplicate-indicator.original {
-        background: rgba(40, 167, 69, 0.8);
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.8);
         color: white;
+        padding: 1rem;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
       }
-
-      .duplicate-indicator.duplicate {
-        background: rgba(220, 53, 69, 0.8);
-        color: white;
+      .preview-modal:hover .preview-info {
+        transform: translateY(0);
       }
     </style>
   </head>
-  <body>
+  <body class="bg-base-200 min-h-screen" x-data="app">
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light mb-4">
-      <div class="container">
-        <a class="navbar-brand" href="#">
-          <i class="bi bi-images me-2"></i>
-          Wallpaper Analyzer Pro
-        </a>
-        <button class="settings-toggle" id="settingsToggle">
+    <div class="navbar bg-base-100 shadow-lg">
+      <div class="flex-1">
+        <a class="btn btn-ghost text-xl">Wallyzer</a>
+      </div>
+      <div class="flex-none gap-2">
+        <select
+          class="select select-bordered w-full max-w-xs"
+          x-model="currentTheme"
+          @change="changeTheme($event.target.value)"
+        >
+          <template x-for="theme in themes" :key="theme">
+            <option
+              :value="theme"
+              x-text="theme.charAt(0).toUpperCase() + theme.slice(1)"
+            ></option>
+          </template>
+        </select>
+        <button class="btn btn-square btn-ghost" @click="showSettings = true">
           <i class="bi bi-gear"></i>
-          <span>Settings</span>
         </button>
       </div>
-    </nav>
+    </div>
 
     <!-- Main Container -->
-    <div class="container">
-      <!-- Analysis Form -->
-      <div class="config-section mb-4">
-        <form id="analysisForm">
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Wallpaper Directory</label>
+    <div class="container mx-auto p-4">
+      <!-- Analysis Controls -->
+      <div class="card bg-base-100 shadow-xl mb-4">
+        <div class="card-body">
+          <div class="flex flex-wrap gap-4 items-center">
+            <div class="form-control flex-1">
               <div class="input-group">
+                <span class="flex items-center px-3 bg-base-200">
+                  <i class="bi bi-folder"></i>
+                </span>
                 <input
                   type="text"
-                  class="form-control"
-                  id="directory"
-                  placeholder="Enter directory path"
+                  class="input input-bordered w-full"
+                  x-model="settings.directory"
+                  placeholder="Enter directory path..."
                   required
                 />
-                <button
-                  class="btn btn-outline-secondary"
-                  type="button"
-                  id="browseButton"
-                >
-                  <i class="bi bi-folder"></i>
-                </button>
               </div>
             </div>
-            <div class="col-md-6">
-              <label class="form-label">Worker Threads</label>
-              <select class="form-select" id="workers">
-                <option value="4">4 threads</option>
-                <option value="8">8 threads</option>
-                <option value="16" selected>16 threads</option>
-                <option value="32">32 threads</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Similarity Threshold</label>
-              <div class="d-flex align-items-center">
-                <input
-                  type="range"
-                  class="form-range"
-                  id="similarity"
-                  min="75"
-                  max="95"
-                  step="5"
-                  value="85"
-                />
-                <span class="ms-2" id="similarityValue">0.85</span>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Aesthetic Threshold</label>
-              <div class="d-flex align-items-center">
-                <input
-                  type="range"
-                  class="form-range"
-                  id="threshold"
-                  min="70"
-                  max="90"
-                  step="5"
-                  value="80"
-                />
-                <span class="ms-2" id="thresholdValue">0.80</span>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Image Limit</label>
-              <select class="form-select" id="limit">
-                <option value="0" selected>No Limit</option>
-                <option value="100">100 images</option>
-                <option value="500">500 images</option>
-                <option value="1000">1000 images</option>
-                <option value="5000">5000 images</option>
-              </select>
-            </div>
-            <div class="col-12">
-              <div class="form-check form-check-inline">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="recursive"
-                  checked
-                />
-                <label class="form-check-label" for="recursive"
-                  >Search Subdirectories</label
-                >
-              </div>
-              <div class="form-check form-check-inline">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="skip_duplicates"
-                />
-                <label class="form-check-label" for="skip_duplicates"
-                  >Skip Duplicate Detection</label
-                >
-              </div>
-              <div class="form-check form-check-inline">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="skip_aesthetics"
-                />
-                <label class="form-check-label" for="skip_aesthetics"
-                  >Skip Aesthetic Analysis</label
-                >
-              </div>
-            </div>
-            <div class="col-12">
-              <button type="submit" class="btn btn-primary">
-                <i class="bi bi-search me-2"></i>Analyze Wallpapers
-              </button>
-            </div>
+            <button
+              class="btn btn-primary"
+              @click="analyzeDirectory"
+              :class="{ 'loading': loading }"
+            >
+              Analyze
+            </button>
           </div>
-        </form>
-      </div>
-
-      <!-- Progress Section -->
-      <div id="progressSection" class="config-section d-none">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">Analysis Progress</h5>
-          <span id="statusMessage" class="text-muted"></span>
         </div>
-        <div class="progress mb-2">
-          <div
-            id="progressBar"
-            class="progress-bar progress-bar-striped progress-bar-animated"
-            role="progressbar"
-            style="width: 0%"
-          ></div>
-        </div>
-        <div id="progressDetails" class="progress-details"></div>
       </div>
 
       <!-- Filter Bar -->
-      <div class="filter-bar">
-        <div class="row align-items-center">
-          <div class="col-md-4">
-            <div class="search-box">
-              <i class="bi bi-search"></i>
-              <input
-                type="text"
-                class="form-control"
-                id="searchInput"
-                placeholder="Search images..."
-              />
-            </div>
-          </div>
-          <div class="col-md-3">
-            <select class="form-select sort-dropdown" id="sortSelect">
-              <option value="name">Sort by Name</option>
-              <option value="date">Sort by Date</option>
-              <option value="size">Sort by Size</option>
-              <option value="score">Sort by Score</option>
-            </select>
-          </div>
-          <div class="col-md-3">
-            <select class="form-select" id="filterSelect">
-              <option value="all">All Images</option>
-              <option value="duplicates">Duplicates</option>
-              <option value="highScore">High Score</option>
-              <option value="lowScore">Low Score</option>
-            </select>
-          </div>
-          <div class="col-md-2">
-            <div class="view-toggle">
-              <button class="btn active" data-view="grid">
-                <i class="bi bi-grid"></i>
-              </button>
-              <button class="btn" data-view="list">
-                <i class="bi bi-list"></i>
-              </button>
+      <div class="card bg-base-100 shadow-xl mb-4">
+        <div class="card-body">
+          <div class="flex flex-wrap gap-4 items-center">
+            <div class="form-control flex-1">
+              <div class="input-group">
+                <span class="flex items-center px-3 bg-base-200">
+                  <i class="bi bi-search"></i>
+                </span>
+                <input
+                  type="text"
+                  class="input input-bordered w-full"
+                  x-model="searchTerm"
+                  placeholder="Search images..."
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Category Selector -->
-      <div class="category-selector">
-        <div class="btn-group">
-          <button class="btn active" data-category="all">All Images</button>
-          <button class="btn" data-category="duplicates">Duplicates</button>
-          <button class="btn" data-category="high-score">High Score</button>
-          <button class="btn" data-category="low-score">Low Score</button>
-          <button class="btn" data-category="nature">Nature</button>
-          <button class="btn" data-category="abstract">Abstract</button>
-          <button class="btn" data-category="minimal">Minimal</button>
-        </div>
-      </div>
-
-      <!-- Results Section -->
-      <div id="resultsContainer" class="image-grid"></div>
-
-      <!-- Batch Actions -->
-      <div class="batch-actions">
-        <span class="selected-count">0 selected</span>
+      <!-- Masonry Grid -->
+      <div class="masonry-grid">
+        <template x-for="image in filteredImages" :key="image.path">
+          <div class="masonry-item" x-init="animateImage($el)">
+            <img
+              :src="'/api/image?path=' + encodeURIComponent(image.path)"
+              :alt="image.path"
+              @click="showPreview = true; previewImage = image"
+              class="w-full h-auto"
+            />
+            <div
+              class="aesthetic-score"
+              x-text="formatAestheticScore(image.aesthetic_score)"
+            ></div>
+          </div>
+        </template>
       </div>
     </div>
 
-    <!-- Settings Panel -->
-    <div class="settings-panel" id="settingsPanel">
-      <h5 class="mb-4">Settings</h5>
-      <div class="mb-3">
-        <label class="form-label">Theme</label>
-        <select class="form-select" id="themeSelect">
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="system">System</option>
-        </select>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Image Quality</label>
-        <select class="form-select" id="qualitySelect">
-          <option value="high">High</option>
-          <option value="medium" selected>Medium</option>
-          <option value="low">Low</option>
-        </select>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Grid Size</label>
-        <select class="form-select" id="gridSizeSelect">
-          <option value="small">Small</option>
-          <option value="medium" selected>Medium</option>
-          <option value="large">Large</option>
-        </select>
-      </div>
-      <div class="mb-3">
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" id="showFilenames" />
-          <label class="form-check-label" for="showFilenames"
-            >Show filenames</label
-          >
-        </div>
-      </div>
-      <div class="mb-3">
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" id="autoOrganize" />
-          <label class="form-check-label" for="autoOrganize"
-            >Auto-organize on analysis</label
-          >
-        </div>
-      </div>
-      <div class="mb-3">
-        <div class="form-check form-switch">
+    <!-- Settings Modal -->
+    <dialog
+      id="settings_modal"
+      class="modal"
+      :class="{ 'modal-open': showSettings }"
+    >
+      <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Settings</h3>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Directory Path</span>
+          </label>
           <input
-            class="form-check-input"
-            type="checkbox"
-            id="showThumbnails"
-            checked
+            type="text"
+            class="input input-bordered"
+            x-model="settings.directory"
+            required
           />
-          <label class="form-check-label" for="showThumbnails"
-            >Show thumbnails</label
-          >
         </div>
-      </div>
-      <div class="mb-3">
-        <div class="form-check form-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="enableNotifications"
-            checked
-          />
-          <label class="form-check-label" for="enableNotifications"
-            >Enable notifications</label
-          >
-        </div>
-      </div>
-    </div>
 
-    <!-- Toast Container -->
-    <div id="toastContainer" class="toast-container"></div>
+        <div class="form-control mt-4">
+          <label class="label">
+            <span class="label-text">Similarity Threshold</span>
+            <span
+              class="label-text-alt"
+              x-text="settings.similarity_threshold"
+            ></span>
+          </label>
+          <input
+            type="range"
+            class="range range-primary"
+            x-model="settings.similarity_threshold"
+            min="0"
+            max="1"
+            step="0.01"
+          />
+        </div>
+
+        <div class="form-control mt-4">
+          <label class="label">
+            <span class="label-text">Aesthetic Threshold</span>
+            <span
+              class="label-text-alt"
+              x-text="settings.aesthetic_threshold"
+            ></span>
+          </label>
+          <input
+            type="range"
+            class="range range-primary"
+            x-model="settings.aesthetic_threshold"
+            min="0"
+            max="1"
+            step="0.01"
+          />
+        </div>
+
+        <div class="form-control mt-4">
+          <label class="label">
+            <span class="label-text">Image Limit</span>
+          </label>
+          <select class="select select-bordered" x-model="settings.limit">
+            <option value="0">No Limit</option>
+            <option value="100">100 images</option>
+            <option value="500">500 images</option>
+            <option value="1000">1000 images</option>
+          </select>
+        </div>
+
+        <div class="form-control mt-4">
+          <label class="label cursor-pointer">
+            <span class="label-text">Include Subdirectories</span>
+            <input
+              type="checkbox"
+              class="toggle toggle-primary"
+              x-model="settings.recursive"
+            />
+          </label>
+        </div>
+
+        <div class="form-control mt-4">
+          <label class="label cursor-pointer">
+            <span class="label-text">Skip Duplicate Detection</span>
+            <input
+              type="checkbox"
+              class="toggle toggle-primary"
+              x-model="settings.skip_duplicates"
+            />
+          </label>
+        </div>
+
+        <div class="form-control mt-4">
+          <label class="label cursor-pointer">
+            <span class="label-text">Skip Aesthetic Analysis</span>
+            <input
+              type="checkbox"
+              class="toggle toggle-primary"
+              x-model="settings.skip_aesthetics"
+            />
+          </label>
+        </div>
+
+        <div class="modal-action">
+          <button class="btn" @click="showSettings = false">Close</button>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="showSettings = false">close</button>
+      </form>
+    </dialog>
 
     <!-- Image Preview Modal -->
-    <div class="image-preview-modal" id="imagePreviewModal">
-      <div class="image-preview-content">
-        <span class="image-preview-close">&times;</span>
-        <img src="" alt="Preview" id="previewImage" />
-        <div class="image-preview-info">
-          <h5 id="previewTitle"></h5>
-          <p id="previewScore"></p>
+    <dialog
+      id="preview_modal"
+      class="modal"
+      :class="{ 'modal-open': showPreview }"
+    >
+      <div class="modal-box max-w-4xl p-0 preview-modal">
+        <div class="relative">
+          <img
+            :src="previewImage ? '/api/image?path=' + encodeURIComponent(previewImage.path) : ''"
+            class="w-full h-auto"
+          />
+          <div class="preview-info">
+            <h3
+              class="text-lg font-bold"
+              x-text="previewImage ? previewImage.path.split('/').pop() : ''"
+            ></h3>
+            <div class="flex gap-2 mt-2">
+              <div
+                class="badge badge-primary"
+                x-text="'Cluster ' + (previewImage ? previewImage.cluster : '')"
+              ></div>
+              <div
+                class="badge badge-warning"
+                x-show="previewImage && previewImage.is_duplicate"
+              >
+                Duplicate
+              </div>
+              <div
+                class="badge badge-error"
+                x-show="previewImage && previewImage.is_low_aesthetic"
+              >
+                Low Score
+              </div>
+            </div>
+            <div
+              class="mt-2"
+              x-text="'Aesthetic Score: ' + formatAestheticScore(previewImage ? previewImage.aesthetic_score : null)"
+            ></div>
+          </div>
+        </div>
+        <div class="modal-action">
+          <button class="btn" @click="showPreview = false">Close</button>
         </div>
       </div>
-    </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="showPreview = false">close</button>
+      </form>
+    </dialog>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-    <script>
-      // Initialize Socket.IO
-      const socket = io({
-        transports: ["websocket", "polling"],
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 60000,
-        autoConnect: true,
-        forceNew: true,
-        pingTimeout: 60000,
-        pingInterval: 25000,
-      });
-
-      // DOM Elements
-      const form = document.getElementById("analysisForm");
-      const progressBar = document.getElementById("progressBar");
-      const statusMessage = document.getElementById("statusMessage");
-      const resultsContainer = document.getElementById("resultsContainer");
-      const progressSection = document.getElementById("progressSection");
-      const settingsPanel = document.getElementById("settingsPanel");
-      const settingsToggle = document.getElementById("settingsToggle");
-      const searchInput = document.getElementById("searchInput");
-      const sortSelect = document.getElementById("sortSelect");
-      const filterSelect = document.getElementById("filterSelect");
-      const viewToggle = document.querySelector(".view-toggle");
-      const batchActions = document.querySelector(".batch-actions");
-      const selectedCount = document.querySelector(".selected-count");
-
-      // State
-      let selectedImages = new Set();
-      let currentView = "grid";
-      let currentResults = null;
-
-      // Event Listeners
-      settingsToggle.addEventListener("click", () => {
-        settingsPanel.classList.toggle("show");
-      });
-
-      document.getElementById("similarity").addEventListener("input", (e) => {
-        document.getElementById("similarityValue").textContent = (
-          e.target.value / 100
-        ).toFixed(2);
-      });
-
-      document.getElementById("threshold").addEventListener("input", (e) => {
-        document.getElementById("thresholdValue").textContent = (
-          e.target.value / 100
-        ).toFixed(2);
-      });
-
-      viewToggle.addEventListener("click", (e) => {
-        if (e.target.tagName === "BUTTON") {
-          viewToggle
-            .querySelectorAll("button")
-            .forEach((btn) => btn.classList.remove("active"));
-          e.target.classList.add("active");
-          currentView = e.target.dataset.view;
-          updateView();
-        }
-      });
-
-      // Socket.IO event handlers
-      socket.on("connect", () => {
-        showToast("Connected to server", "success");
-      });
-
-      socket.on("connect_error", (error) => {
-        console.error("Socket.IO connection error:", error);
-        showToast(`Connection error: ${error.message}`, "error");
-      });
-
-      socket.on("progress", (data) => {
-        updateProgress(data);
-      });
-
-      socket.on("analysis_complete", (data) => {
-        currentResults = data;
-        filterAndDisplayResults(data);
-        showToast("Analysis completed successfully!", "success");
-      });
-
-      socket.on("error", (error) => {
-        console.error("Socket.IO error:", error);
-        showToast(`Error: ${error.message}`, "error");
-      });
-
-      socket.on("disconnect", (reason) => {
-        console.warn("Socket.IO disconnected:", reason);
-        if (reason === "io server disconnect") {
-          showToast("Server disconnected. Please refresh the page.", "error");
-        }
-      });
-
-      socket.on("reconnect_attempt", (attemptNumber) => {
-        console.log("Attempting to reconnect...", attemptNumber);
-        showToast("Attempting to reconnect...", "info");
-      });
-
-      socket.on("reconnect", (attemptNumber) => {
-        console.log("Reconnected after", attemptNumber, "attempts");
-        showToast("Reconnected successfully", "success");
-      });
-
-      socket.on("reconnect_error", (error) => {
-        console.error("Reconnection error:", error);
-        showToast("Failed to reconnect. Please refresh the page.", "error");
-      });
-
-      // Helper functions
-      function updateProgress(data) {
-        progressBar.style.width = `${data.progress}%`;
-        statusMessage.textContent = data.message || "Processing...";
-        progressSection.classList.remove("d-none");
-
-        // Update progress details
-        const progressDetails = document.getElementById("progressDetails");
-        if (data.total_images) {
-          progressDetails.innerHTML = `
-            <div class="progress-stats">
-              <span class="time">${new Date().toLocaleTimeString()}</span>
-              <span class="count">${data.processed_images || 0} / ${
-            data.total_images
-          } images</span>
-            </div>
-          `;
-        }
-      }
-
-      function displayResults(data) {
-        resultsContainer.innerHTML = "";
-
-        if (!data || (!data.duplicates?.length && !data.aesthetic_scores)) {
-          resultsContainer.innerHTML = `
-            <div class="text-center py-5">
-              <i class="bi bi-images" style="font-size: 3rem; color: var(--gray-400);"></i>
-              <p class="text-muted mt-3">No results found</p>
-            </div>
-          `;
-          return;
-        }
-
-        // Create a combined array of all images
-        let allImages = [];
-
-        // Add duplicates
-        if (data.duplicates && data.duplicates.length > 0) {
-          data.duplicates.forEach((group, groupIndex) => {
-            group.forEach((path, index) => {
-              allImages.push({
-                path: path,
-                filename: path.split("/").pop(),
-                type: "duplicate",
-                groupIndex: groupIndex,
-                isOriginal: index === 0,
-              });
-            });
-          });
-        }
-
-        // Add aesthetic scores
-        if (data.aesthetic_scores) {
-          Object.entries(data.aesthetic_scores).forEach(([path, score]) => {
-            allImages.push({
-              path: path,
-              filename: path.split("/").pop(),
-              type: "aesthetic",
-              score: score,
-            });
-          });
-        }
-
-        // Shuffle the array for randomization
-        allImages = shuffleArray(allImages);
-
-        // Create image cards
-        allImages.forEach((image) => {
-          const imageCard = createImageCard(image);
-          if (imageCard) {
-            resultsContainer.appendChild(imageCard);
-          }
-        });
-      }
-
-      function createImageCard(image) {
-        const card = document.createElement("div");
-        card.className = "image-card";
-
-        // Add random rotation for visual interest
-        const rotation = (Math.random() - 0.5) * 2; // Random value between -1 and 1
-        card.style.transform = `rotate(${rotation}deg)`;
-
-        const img = document.createElement("img");
-        img.src = `/api/image?path=${encodeURIComponent(image.path)}`;
-        img.alt = image.filename;
-        img.loading = "lazy";
-
-        const overlay = document.createElement("div");
-        overlay.className = "overlay";
-
-        // Add category-specific indicators
-        if (image.type === "duplicate") {
-          const indicator = document.createElement("div");
-          indicator.className = `duplicate-indicator ${
-            image.isOriginal ? "original" : "duplicate"
-          }`;
-          indicator.textContent = image.isOriginal ? "Original" : "Duplicate";
-          overlay.appendChild(indicator);
-        } else if (image.type === "aesthetic") {
-          const score = document.createElement("div");
-          score.className = "score-indicator";
-          score.textContent = `${(image.score * 100).toFixed(1)}%`;
-          overlay.appendChild(score);
-        }
-
-        card.appendChild(img);
-        card.appendChild(overlay);
-
-        // Add click handler for preview
-        card.addEventListener("click", () => {
-          const modal = document.getElementById("imagePreviewModal");
-          const previewImg = document.getElementById("previewImage");
-          const previewTitle = document.getElementById("previewTitle");
-          const previewScore = document.getElementById("previewScore");
-
-          previewImg.src = img.src;
-          if (document.getElementById("showFilenames").checked) {
-            previewTitle.textContent = image.filename;
-          }
-          if (image.score) {
-            previewScore.textContent = `Score: ${(image.score * 100).toFixed(
-              1
-            )}%`;
-          }
-
-          modal.classList.add("show");
-        });
-
-        return card;
-      }
-
-      function showToast(message, type = "info") {
-        const toast = document.createElement("div");
-        toast.className = `toast align-items-center text-white bg-${type} border-0`;
-        toast.setAttribute("role", "alert");
-        toast.setAttribute("aria-live", "assertive");
-        toast.setAttribute("aria-atomic", "true");
-
-        // Add error icon for error messages
-        const icon =
-          type === "error"
-            ? '<i class="bi bi-exclamation-circle me-2"></i>'
-            : "";
-
-        toast.innerHTML = `
-          <div class="d-flex">
-            <div class="toast-body">
-              ${icon}${message}
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-          </div>
-        `;
-
-        document.getElementById("toastContainer").appendChild(toast);
-        const bsToast = new bootstrap.Toast(toast, {
-          autohide: type !== "error", // Keep error messages visible until manually dismissed
-          delay: type === "error" ? 5000 : 3000,
-        });
-        bsToast.show();
-
-        toast.addEventListener("hidden.bs.toast", () => {
-          toast.remove();
-        });
-      }
-
-      function toggleImageSelection(path, card) {
-        if (selectedImages.has(path)) {
-          selectedImages.delete(path);
-          card.classList.remove("selected");
-        } else {
-          selectedImages.add(path);
-          card.classList.add("selected");
-        }
-
-        selectedCount.textContent = `${selectedImages.size} selected`;
-        batchActions.classList.toggle("show", selectedImages.size > 0);
-      }
-
-      function updateView() {
-        resultsContainer.className =
-          currentView === "grid" ? "image-grid" : "image-list";
-      }
-
-      // Form submission
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        // Show loading state
-        const submitButton = form.querySelector('button[type="submit"]');
-        const originalButtonText = submitButton.innerHTML;
-        submitButton.disabled = true;
-        submitButton.innerHTML = `
-          <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-          Analyzing...
-        `;
-
-        const formData = {
-          directory: document.getElementById("directory").value,
-          similarity_threshold: parseFloat(
-            document.getElementById("similarityValue").textContent
-          ),
-          aesthetic_threshold: parseFloat(
-            document.getElementById("thresholdValue").textContent
-          ),
-          recursive: document.getElementById("recursive").checked,
-          skip_duplicates: document.getElementById("skip_duplicates").checked,
-          skip_aesthetics: document.getElementById("skip_aesthetics").checked,
-          limit: parseInt(document.getElementById("limit").value),
-        };
-
-        try {
-          const response = await fetch("/api/analyze", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(formData),
-          });
-
-          let data;
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            data = await response.json();
-          } else {
-            throw new Error("Server response was not JSON");
-          }
-
-          if (!response.ok) {
-            throw new Error(data.error || "Analysis failed");
-          }
-
-          showToast("Analysis started", "info");
-        } catch (error) {
-          console.error("Error:", error);
-          showToast(error.message || "Failed to start analysis", "error");
-        } finally {
-          // Reset button state
-          submitButton.disabled = false;
-          submitButton.innerHTML = originalButtonText;
-        }
-      });
-
-      // Initialize
-      document.addEventListener("DOMContentLoaded", () => {
-        // Set initial values
-        document.getElementById("similarityValue").textContent = "0.85";
-        document.getElementById("thresholdValue").textContent = "0.80";
-      });
-
-      document.getElementById("progressSection").classList.remove("d-none");
-      document.getElementById("statusMessage").textContent = "Initializing...";
-      progressBar.style.width = "5%"; // Indicate progress start
-
-      if (resultsContainer.innerHTML.trim() === "") {
-        resultsContainer.innerHTML =
-          '<p class="text-muted text-center">No results found.</p>';
-      }
-
-      // Add to JavaScript
-      document
-        .getElementById("imagePreviewModal")
-        .addEventListener("click", (e) => {
-          if (
-            e.target.classList.contains("image-preview-modal") ||
-            e.target.classList.contains("image-preview-close")
-          ) {
-            e.target.closest(".image-preview-modal").classList.remove("show");
-          }
-        });
-
-      // Close settings panel when clicking outside
-      document.addEventListener("click", (e) => {
-        if (
-          !settingsPanel.contains(e.target) &&
-          !settingsToggle.contains(e.target)
-        ) {
-          settingsPanel.classList.remove("show");
-        }
-      });
-
-      // Close settings panel when pressing Escape key
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-          settingsPanel.classList.remove("show");
-        }
-      });
-
-      // Category filtering
-      const categoryButtons = document.querySelectorAll(
-        ".category-selector .btn"
-      );
-      let currentCategory = "all";
-
-      categoryButtons.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          categoryButtons.forEach((b) => b.classList.remove("active"));
-          btn.classList.add("active");
-          currentCategory = btn.dataset.category;
-          filterAndDisplayResults(currentResults);
-        });
-      });
-
-      function filterAndDisplayResults(data) {
-        if (!data) return;
-
-        let filteredData = { ...data };
-
-        switch (currentCategory) {
-          case "duplicates":
-            filteredData.aesthetic_scores = {};
-            break;
-          case "high-score":
-            filteredData.duplicates = [];
-            filteredData.aesthetic_scores = Object.fromEntries(
-              Object.entries(data.aesthetic_scores || {}).filter(
-                ([_, score]) => score > 0.6
-              )
-            );
-            break;
-          case "low-score":
-            filteredData.duplicates = [];
-            filteredData.aesthetic_scores = Object.fromEntries(
-              Object.entries(data.aesthetic_scores || {}).filter(
-                ([_, score]) => score < 0.6
-              )
-            );
-            break;
-          case "nature":
-          case "abstract":
-          case "minimal":
-            // These categories would require additional image classification
-            // For now, we'll just show all images
-            break;
-        }
-
-        displayResults(filteredData);
-      }
-
-      // Fisher-Yates shuffle algorithm
-      function shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [array[i], array[j]] = [array[j], array[i]];
-        }
-        return array;
-      }
-    </script>
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast toast-end"></div>
   </body>
 </html>

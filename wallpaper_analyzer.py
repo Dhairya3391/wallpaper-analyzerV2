@@ -19,6 +19,9 @@ import time
 import sqlite3
 import json
 from datetime import datetime
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+import torch.nn.functional as F
 
 # Configuration
 class Config:
@@ -32,13 +35,19 @@ class Config:
     DEFAULT_SIMILARITY_THRESHOLD = 0.85
     DEFAULT_AESTHETIC_THRESHOLD = 0.8
     
+    # Clustering settings
+    MIN_CLUSTERS = 3
+    MAX_CLUSTERS = 10
+    CLUSTER_FEATURE_DIM = 2048  # ResNet50 feature dimension
+    
     # Flask settings
     HOST = '0.0.0.0'
     PORT = 8000
     DEBUG = False
     
     # Logging settings
-    ENABLE_STDOUT_LOGGING = False
+    ENABLE_APP_LOGGING = True  # Application logs
+    ENABLE_SOCKET_LOGGING = False  # Socket.IO/Engine.IO logs
     
     # Database settings
     DB_PATH = 'analysis_cache.db'
@@ -60,6 +69,8 @@ def init_db():
             processed_images INTEGER,
             duplicates TEXT,
             aesthetic_scores TEXT,
+            clusters TEXT,
+            cluster_features TEXT,
             last_modified TIMESTAMP,
             last_analyzed TIMESTAMP
         )
@@ -99,7 +110,7 @@ def get_cached_results(directory, params):
     
     if result:
         # Check if directory contents have changed
-        last_modified = datetime.fromisoformat(result[11])
+        last_modified = datetime.fromisoformat(result[13])
         current_modified = datetime.fromtimestamp(os.path.getmtime(directory))
         
         if current_modified <= last_modified:
@@ -110,6 +121,8 @@ def get_cached_results(directory, params):
                 'processed_images': result[8],
                 'duplicates': json.loads(result[9]),
                 'aesthetic_scores': json.loads(result[10]),
+                'clusters': json.loads(result[11]),
+                'cluster_features': json.loads(result[12]),
                 'cached': True
             }
     
@@ -127,8 +140,9 @@ def cache_results(directory, params, results):
         INSERT OR REPLACE INTO analysis_results 
         (directory, similarity_threshold, aesthetic_threshold, recursive, 
          skip_duplicates, skip_aesthetics, limit_count, total_images, 
-         processed_images, duplicates, aesthetic_scores, last_modified, last_analyzed)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         processed_images, duplicates, aesthetic_scores, clusters, cluster_features,
+         last_modified, last_analyzed)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         directory,
         params['similarity_threshold'],
@@ -141,6 +155,8 @@ def cache_results(directory, params, results):
         results['processed_images'],
         json.dumps(results['duplicates']),
         json.dumps(results['aesthetic_scores']),
+        json.dumps(results.get('clusters', {})),
+        json.dumps(results.get('cluster_features', {})),
         last_modified.isoformat(),
         datetime.now().isoformat()
     ))
@@ -150,7 +166,7 @@ def cache_results(directory, params, results):
 
 # Logging setup
 handlers = [logging.FileHandler('analyzed.log')]
-if Config.ENABLE_STDOUT_LOGGING:
+if Config.ENABLE_APP_LOGGING:
     handlers.append(logging.StreamHandler())
 
 logging.basicConfig(
@@ -167,8 +183,8 @@ socketio = SocketIO(
     app,
     async_mode='eventlet',
     cors_allowed_origins="*",
-    logger=True,
-    engineio_logger=True,
+    logger=Config.ENABLE_SOCKET_LOGGING,
+    engineio_logger=Config.ENABLE_SOCKET_LOGGING,
     ping_timeout=60,
     ping_interval=25,
     max_http_buffer_size=1e8
@@ -272,14 +288,11 @@ class DuplicateDetector:
     def __init__(self, image_processor):
         self.image_processor = image_processor
 
-    def find_duplicates(self, image_paths, threshold=Config.DEFAULT_SIMILARITY_THRESHOLD, progress_callback=None):
+    def find_duplicates(self, image_paths, threshold=Config.DEFAULT_SIMILARITY_THRESHOLD):
         """Find duplicate images using perceptual hashing and feature comparison"""
         if not image_paths:
             return []
 
-        total_images = len(image_paths)
-        logger.info(f"Starting duplicate detection for {total_images} images")
-        
         # Phase 1: Hash-based grouping
         image_hashes = defaultdict(list)
         with ThreadPoolExecutor(max_workers=Config.MAX_WORKERS) as executor:
@@ -290,8 +303,6 @@ class DuplicateDetector:
                     hash_value = future.result()
                     if hash_value:
                         image_hashes[hash_value].append(path)
-                    if progress_callback:
-                        progress_callback(len(image_hashes), total_images, "Calculating image hashes")
                 except Exception as e:
                     logger.error(f"Error processing hash: {e}")
 
@@ -304,8 +315,6 @@ class DuplicateDetector:
                 batch = image_paths[i:i + Config.BATCH_SIZE]
                 batch_features = self.image_processor.process_batch(batch, 'features')
                 features.update(batch_features)
-                if progress_callback:
-                    progress_callback(i + len(batch), total_images, "Extracting image features")
             
             # Calculate similarity matrix
             paths = list(features.keys())
@@ -332,67 +341,160 @@ class DuplicateDetector:
                     
                     if len(current_group) > 1:
                         potential_duplicates.append(list(current_group))
-                    
-                    if progress_callback:
-                        progress_callback(i + 1, len(paths), "Finding similar images")
 
         return potential_duplicates
+
+class ImageClusterer:
+    def __init__(self, image_processor):
+        self.image_processor = image_processor
+        self.device = Config.DEVICE
+        self.transform = transforms.Compose([
+            transforms.Resize((224, 224), antialias=True),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        self._initialize_model()
+        
+    def _initialize_model(self):
+        """Initialize ResNet50 model for feature extraction"""
+        self.model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+        # Remove the final classification layer
+        self.model = torch.nn.Sequential(*list(self.model.children())[:-1])
+        self.model = self.model.to(self.device)
+        self.model.eval()
+    
+    def extract_features(self, image_paths):
+        """Extract features from a batch of images"""
+        features = []
+        valid_paths = []
+        
+        for path in image_paths:
+            try:
+                image = Image.open(path).convert('RGB')
+                image = self.transform(image).unsqueeze(0).to(self.device)
+                with torch.no_grad():
+                    feature = self.model(image)
+                    feature = feature.squeeze().cpu().numpy()
+                    features.append(feature)
+                    valid_paths.append(path)
+            except Exception as e:
+                logger.error(f"Error extracting features for {path}: {e}")
+                continue
+        
+        return np.array(features), valid_paths
+    
+    def find_optimal_clusters(self, features):
+        """Find optimal number of clusters using silhouette analysis"""
+        best_score = -1
+        best_n_clusters = Config.MIN_CLUSTERS
+        
+        for n_clusters in range(Config.MIN_CLUSTERS, min(Config.MAX_CLUSTERS + 1, len(features))):
+            kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+            cluster_labels = kmeans.fit_predict(features)
+            
+            if len(np.unique(cluster_labels)) > 1:
+                score = silhouette_score(features, cluster_labels)
+                if score > best_score:
+                    best_score = score
+                    best_n_clusters = n_clusters
+        
+        return best_n_clusters
+    
+    def cluster_images(self, image_paths):
+        """Cluster images based on their features"""
+        features, valid_paths = self.extract_features(image_paths)
+        
+        if len(features) < Config.MIN_CLUSTERS:
+            return {0: {"paths": valid_paths, "size": len(valid_paths)}}, {}
+        
+        n_clusters = self.find_optimal_clusters(features)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        cluster_labels = kmeans.fit_predict(features)
+        
+        # Create cluster information
+        clusters = {}
+        for i in range(n_clusters):
+            cluster_indices = np.where(cluster_labels == i)[0]
+            cluster_paths = [valid_paths[idx] for idx in cluster_indices]
+            cluster_features = features[cluster_indices]
+            
+            # Find representative image (closest to cluster center)
+            center = kmeans.cluster_centers_[i]
+            distances = np.linalg.norm(cluster_features - center, axis=1)
+            representative_idx = np.argmin(distances)
+            
+            clusters[i] = {
+                "size": len(cluster_paths),
+                "representative": cluster_paths[representative_idx],
+                "paths": cluster_paths
+            }
+        
+        return clusters, {}
 
 class WallpaperAnalyzer:
     def __init__(self):
         self.image_processor = ImageProcessor()
         self.duplicate_detector = DuplicateDetector(self.image_processor)
+        self.image_clusterer = ImageClusterer(self.image_processor)
 
     def analyze_directory(self, directory, similarity_threshold=Config.DEFAULT_SIMILARITY_THRESHOLD,
                          aesthetic_threshold=Config.DEFAULT_AESTHETIC_THRESHOLD, recursive=False,
-                         skip_duplicates=False, skip_aesthetics=False, limit=0, progress_callback=None):
-        """Analyze wallpapers in a directory"""
+                         skip_duplicates=False, skip_aesthetics=False, limit=0):
+        """Analyze a directory of images"""
         try:
             logger.info(f"Starting analysis of directory: {directory}")
             
-            # Get image paths
+            # Get all image paths
             image_paths = self._get_image_paths(directory, recursive)
             if limit > 0:
                 image_paths = image_paths[:limit]
             
             results = {
-                'directory': directory,
                 'total_images': len(image_paths),
                 'processed_images': 0,
                 'duplicates': [],
                 'aesthetic_scores': {},
+                'clusters': {},
+                'cluster_features': {},
                 'errors': []
             }
-
-            # Process aesthetics
-            if not skip_aesthetics:
-                for i in range(0, len(image_paths), Config.BATCH_SIZE):
-                    batch = image_paths[i:i + Config.BATCH_SIZE]
-                    scores = self.image_processor.process_batch(batch, 'aesthetic')
-                    results['aesthetic_scores'].update(scores)
-                    if progress_callback:
-                        progress_callback(i + len(batch), len(image_paths), "Analyzing image aesthetics")
-
-            # Check for duplicates
+            
+            if not image_paths:
+                return results
+            
+            # Find duplicates
             if not skip_duplicates:
+                logger.info(f"Starting duplicate detection for {len(image_paths)} images")
                 results['duplicates'] = self.duplicate_detector.find_duplicates(
                     image_paths,
-                    threshold=similarity_threshold,
-                    progress_callback=progress_callback
+                    threshold=similarity_threshold
                 )
-
+            
+            # Calculate aesthetic scores
+            if not skip_aesthetics:
+                logger.info("Starting aesthetic analysis")
+                results['aesthetic_scores'] = self.image_processor.process_batch(
+                    image_paths,
+                    'aesthetic'
+                )
+            
+            # Cluster images
+            logger.info("Starting image clustering")
+            results['clusters'], results['cluster_features'] = self.image_clusterer.cluster_images(image_paths)
+            
             results['processed_images'] = len(image_paths)
+            logger.info("Analysis completed")
             return results
-
+            
         except Exception as e:
-            logger.error(f"Error analyzing wallpapers: {e}", exc_info=True)
+            logger.error(f"Error during analysis: {str(e)}", exc_info=True)
             return {
-                'directory': directory,
-                'error': str(e),
                 'total_images': 0,
                 'processed_images': 0,
                 'duplicates': [],
                 'aesthetic_scores': {},
+                'clusters': {},
+                'cluster_features': {},
                 'errors': [str(e)]
             }
 
@@ -412,6 +514,77 @@ class WallpaperAnalyzer:
         
         return image_paths
 
+    def format_results_for_frontend(self, results):
+        """Format analysis results for frontend display"""
+        try:
+            # Initialize sets for tracking
+            all_paths = set()
+            duplicate_paths = set()
+            low_aesthetic_paths = set()
+            
+            # Process clusters
+            clusters = []
+            if results.get('clusters'):
+                for cluster_id, cluster_data in results['clusters'].items():
+                    if isinstance(cluster_data, dict) and 'paths' in cluster_data:
+                        cluster_paths = set(cluster_data['paths'])
+                        all_paths.update(cluster_paths)
+                        clusters.append({
+                            'id': cluster_id,
+                            'paths': list(cluster_paths),
+                            'size': len(cluster_paths)
+                        })
+            
+            # Process duplicates
+            if results.get('duplicates'):
+                for group in results['duplicates']:
+                    if isinstance(group, list):
+                        duplicate_paths.update(group)
+                        all_paths.update(group)  # Add duplicate paths to all_paths
+            
+            # Process low aesthetic images
+            if results.get('low_aesthetic'):
+                if isinstance(results['low_aesthetic'], list):
+                    low_aesthetic_paths.update(results['low_aesthetic'])
+                    all_paths.update(results['low_aesthetic'])  # Add low aesthetic paths to all_paths
+            
+            # If no paths were found in clusters/duplicates/low_aesthetic, use all processed images
+            if not all_paths and results.get('processed_images', 0) > 0:
+                # Get all image paths from the directory
+                image_paths = self._get_image_paths(results.get('directory', ''), results.get('recursive', False))
+                all_paths.update(image_paths)
+            
+            # Create final results
+            formatted_results = {
+                'images': [],
+                'clusters': clusters,
+                'duplicates': list(duplicate_paths),
+                'low_aesthetic': list(low_aesthetic_paths)
+            }
+            
+            # Add all images with their metadata
+            for path in all_paths:
+                image_data = {
+                    'path': path,
+                    'cluster': next((c['id'] for c in clusters if path in c['paths']), -1),
+                    'cluster_size': next((c['size'] for c in clusters if path in c['paths']), 0),
+                    'is_duplicate': path in duplicate_paths,
+                    'is_low_aesthetic': path in low_aesthetic_paths,
+                    'aesthetic_score': results.get('aesthetic_scores', {}).get(path)
+                }
+                formatted_results['images'].append(image_data)
+            
+            return formatted_results
+            
+        except Exception as e:
+            logger.error(f"Error formatting results: {str(e)}")
+            return {
+                'images': [],
+                'clusters': [],
+                'duplicates': [],
+                'low_aesthetic': []
+            }
+
 # Flask routes
 @app.route('/')
 def index():
@@ -421,72 +594,65 @@ def index():
 def analyze():
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No JSON data received'}), 400
-
         directory = data.get('directory')
-        if not directory or not os.path.exists(directory):
-            return jsonify({'error': 'Invalid directory path'}), 400
-
-        # Prepare parameters for caching check
+        logger.info(f"Starting analysis for directory: {directory}")
+        
         params = {
             'similarity_threshold': float(data.get('similarity_threshold', Config.DEFAULT_SIMILARITY_THRESHOLD)),
             'aesthetic_threshold': float(data.get('aesthetic_threshold', Config.DEFAULT_AESTHETIC_THRESHOLD)),
-            'recursive': data.get('recursive', False),
-            'skip_duplicates': data.get('skip_duplicates', False),
-            'skip_aesthetics': data.get('skip_aesthetics', False),
+            'recursive': bool(data.get('recursive', True)),
+            'skip_duplicates': bool(data.get('skip_duplicates', True)),
+            'skip_aesthetics': bool(data.get('skip_aesthetics', True)),
             'limit': int(data.get('limit', 0))
         }
+        logger.info(f"Analysis parameters: {params}")
 
-        # Check for cached results
+        # Check cache first
         cached_results = get_cached_results(directory, params)
         if cached_results:
-            logger.info(f"Using cached results for directory: {directory}")
-            socketio.emit('analysis_complete', cached_results)
-            return jsonify(cached_results)
+            logger.info("Using cached results")
+            analyzer = WallpaperAnalyzer()
+            formatted_results = analyzer.format_results_for_frontend(cached_results)
+            logger.info(f"Returning {len(formatted_results['images'])} images from cache")
+            return jsonify({
+                'success': True,
+                'images': formatted_results['images']
+            })
 
-        def progress_callback(current, total, message=None):
-            try:
-                progress = (current / total) * 100 if total > 0 else 0
-                socketio.emit('progress', {
-                    'progress': progress,
-                    'message': message,
-                    'timestamp': time.time(),
-                    'processed_images': current,
-                    'total_images': total
-                })
-            except Exception as e:
-                logger.error(f"Error in progress callback: {e}")
-
+        # Perform analysis
+        logger.info("Starting new analysis")
         analyzer = WallpaperAnalyzer()
         results = analyzer.analyze_directory(
-            directory=directory,
+            directory,
             similarity_threshold=params['similarity_threshold'],
             aesthetic_threshold=params['aesthetic_threshold'],
             recursive=params['recursive'],
             skip_duplicates=params['skip_duplicates'],
             skip_aesthetics=params['skip_aesthetics'],
-            limit=params['limit'],
-            progress_callback=progress_callback
+            limit=params['limit']
         )
+        logger.info("Analysis completed")
 
-        if results:
-            # Convert NumPy float32 values to regular Python floats
-            if 'aesthetic_scores' in results:
-                results['aesthetic_scores'] = {k: float(v) for k, v in results['aesthetic_scores'].items()}
-            
-            # Cache the results
-            cache_results(directory, params, results)
-            
-            analysis_results[directory] = results
-            socketio.emit('analysis_complete', results)
-            return jsonify(results)
+        # Cache results
+        cache_results(directory, params, results)
+        logger.info("Results cached")
+
+        formatted_results = analyzer.format_results_for_frontend(results)
+        logger.info(f"Returning {len(formatted_results['images'])} images")
         
-        return jsonify({'error': 'No results found'}), 404
+        response = {
+            'success': True,
+            'images': formatted_results['images']
+        }
+        logger.info("Sending response to frontend")
+        return jsonify(response)
 
     except Exception as e:
         logger.error(f"Error during analysis: {str(e)}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/image')
 def serve_image():
@@ -513,21 +679,14 @@ def get_results(directory):
 # Socket.IO event handlers
 @socketio.on('connect')
 def handle_connect():
-    try:
-        active_connections.add(request.sid)
-        logger.info(f"Client connected: {request.sid}")
-        socketio.emit('connection_status', {'status': 'connected'}, room=request.sid)
-    except Exception as e:
-        logger.error(f"Error in connect handler: {str(e)}")
-        socketio.emit('error', {'message': str(e)}, room=request.sid)
+    logger.info(f"Client connected: {request.sid}")
+    active_connections.add(request.sid)
+    socketio.emit('connection_status', {'status': 'connected'})
 
 @socketio.on('disconnect')
-def handle_disconnect():
-    try:
-        active_connections.discard(request.sid)
-        logger.info(f"Client disconnected: {request.sid}")
-    except Exception as e:
-        logger.error(f"Error in disconnect handler: {str(e)}")
+def handle_disconnect(client_id):
+    if request.sid in active_connections:
+        active_connections.remove(request.sid)
 
 @socketio.on_error()
 def error_handler(e):
