@@ -3,104 +3,487 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wallpaper Analyzer</title>
+    <title>Wallpaper Analyzer Pro</title>
+    <!-- Bootstrap 5 CSS -->
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
+    <!-- Bootstrap Icons -->
     <link
       rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"
     />
+    <!-- Custom CSS -->
     <style>
-      .progress {
-        height: 25px;
-        transition: width 0.3s ease-in-out;
+      /* Unsplash-like UI */
+      :root {
+        --primary-color: #000000;
+        --secondary-color: #1a1a1a;
+        --light-color: #ffffff;
+        --dark-color: #000000;
+        --gray-100: #f8f9fa;
+        --gray-200: #e9ecef;
+        --gray-300: #dee2e6;
+        --gray-400: #ced4da;
+        --gray-500: #adb5bd;
+        --gray-600: #6c757d;
+        --gray-700: #495057;
+        --gray-800: #343a40;
+        --gray-900: #212529;
       }
-      .progress-bar {
-        transition: width 0.3s ease-in-out;
+
+      body {
+        background-color: var(--light-color);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        color: var(--gray-900);
       }
-      .card {
-        transition: transform 0.2s;
+
+      .navbar {
+        background-color: var(--light-color);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        border-bottom: 1px solid var(--gray-200);
+        padding: 1rem 0;
       }
-      .card:hover {
-        transform: translateY(-5px);
+
+      .navbar-brand {
+        font-weight: 600;
+        color: var(--dark-color) !important;
+        font-size: 1.2rem;
       }
+
+      /* Masonry Grid Layout */
+      .image-grid {
+        columns: 5 300px;
+        column-gap: 20px;
+        padding: 20px;
+        perspective: 1000px;
+      }
+
+      @media (max-width: 1400px) {
+        .image-grid {
+          columns: 4 300px;
+        }
+      }
+
+      @media (max-width: 1200px) {
+        .image-grid {
+          columns: 3 300px;
+        }
+      }
+
+      @media (max-width: 992px) {
+        .image-grid {
+          columns: 2 300px;
+        }
+      }
+
+      @media (max-width: 576px) {
+        .image-grid {
+          columns: 1 300px;
+        }
+      }
+
       .image-card {
+        break-inside: avoid;
+        margin-bottom: 20px;
         position: relative;
-      }
-      .image-card img {
-        height: 200px;
-        object-fit: cover;
-      }
-      .image-card .card-body {
-        padding: 0.5rem;
-      }
-      .image-card .card-title {
-        font-size: 0.9rem;
-        margin-bottom: 0.25rem;
-        white-space: nowrap;
+        border-radius: 4px;
         overflow: hidden;
-        text-overflow: ellipsis;
+        background: var(--light-color);
+        cursor: pointer;
+        transform-style: preserve-3d;
+        transition: transform 0.3s ease;
       }
-      .image-card .card-text {
-        font-size: 0.8rem;
-        margin-bottom: 0.25rem;
+
+      .image-card:hover {
+        transform: translateZ(10px);
       }
-      .image-card .btn-group {
+
+      .image-card img {
+        width: 100%;
+        height: auto;
+        display: block;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+      }
+
+      .image-card:hover img {
+        transform: scale(1.05);
+      }
+
+      .image-card .overlay {
         position: absolute;
-        top: 0.5rem;
-        right: 0.5rem;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
         opacity: 0;
-        transition: opacity 0.2s;
+        transition: opacity 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px;
       }
-      .image-card:hover .btn-group {
+
+      .image-card:hover .overlay {
         opacity: 1;
       }
-      .toast-container {
+
+      .btn-floating {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--light-color);
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(4px);
+      }
+
+      .btn-floating:hover {
+        transform: scale(1.1);
+        background: rgba(255, 255, 255, 0.3);
+      }
+
+      /* Image Preview Modal */
+      .image-preview-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 1100;
+        padding: 2rem;
+        overflow: auto;
+      }
+
+      .image-preview-modal.show {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .image-preview-content {
+        position: relative;
+        max-width: 90vw;
+        max-height: 90vh;
+      }
+
+      .image-preview-content img {
+        max-width: 100%;
+        max-height: 90vh;
+        object-fit: contain;
+      }
+
+      .image-preview-close {
+        position: absolute;
+        top: -2rem;
+        right: -2rem;
+        color: white;
+        font-size: 2rem;
+        cursor: pointer;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        transition: background 0.2s ease;
+      }
+
+      .image-preview-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      .image-preview-info {
+        position: absolute;
+        bottom: -3rem;
+        left: 0;
+        right: 0;
+        color: white;
+        text-align: center;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      .image-preview-modal:hover .image-preview-info {
+        opacity: 1;
+      }
+
+      /* Settings Panel */
+      .settings-panel {
+        position: fixed;
+        top: 0;
+        right: -400px;
+        width: 400px;
+        height: 100vh;
+        background: var(--light-color);
+        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+        border-left: 1px solid var(--gray-200);
+        padding: 2rem;
+        transition: right 0.3s ease;
+        z-index: 1000;
+        overflow-y: auto;
+      }
+
+      .settings-panel.show {
+        right: 0;
+      }
+
+      .settings-toggle {
         position: fixed;
         top: 1rem;
         right: 1rem;
-        z-index: 1050;
+        z-index: 1001;
+        background: var(--light-color);
+        border: 1px solid var(--gray-200);
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
       }
-      .form-control:focus {
-        box-shadow: none;
-        border-color: #0d6efd;
+
+      .settings-toggle:hover {
+        background: var(--gray-100);
       }
-      .form-select:focus {
-        box-shadow: none;
-        border-color: #0d6efd;
+
+      .settings-toggle i {
+        font-size: 1.2rem;
       }
-      .form-check-input:checked {
-        background-color: #0d6efd;
-        border-color: #0d6efd;
-      }
-      .form-label {
-        font-weight: 500;
-        color: #495057;
-      }
-      .progress-section {
-        background-color: #f8f9fa;
-        border-radius: 0.5rem;
+
+      /* Progress Bar */
+      .progress-container {
+        background: var(--light-color);
+        border-radius: 4px;
         padding: 1rem;
         margin-bottom: 1rem;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        border: 1px solid var(--gray-200);
       }
-      .progress-details {
-        margin-top: 1rem;
-        font-size: 0.9rem;
+
+      .progress {
+        height: 2px;
+        border-radius: 1px;
+        background-color: var(--gray-200);
       }
-      .badge {
-        font-weight: 500;
+
+      .progress-bar {
+        background-color: var(--dark-color);
+      }
+
+      /* Toast Notifications */
+      .toast {
+        background: var(--light-color);
+        border: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-radius: 4px;
+      }
+
+      .toast.bg-success {
+        background: var(--dark-color) !important;
+      }
+
+      .toast.bg-error {
+        background: var(--danger-color) !important;
+      }
+
+      .toast.bg-info {
+        background: var(--gray-800) !important;
+      }
+
+      /* Remove unnecessary elements */
+      .filter-bar {
+        display: none;
+      }
+
+      .batch-actions {
+        display: none;
+      }
+
+      .view-toggle {
+        display: none;
+      }
+
+      /* Category Selector */
+      .category-selector {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background: var(--light-color);
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      }
+
+      .category-selector .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .category-selector .btn {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        border: 1px solid var(--gray-200);
+        background: var(--light-color);
+        color: var(--gray-700);
+        transition: all 0.2s ease;
+      }
+
+      .category-selector .btn:hover,
+      .category-selector .btn.active {
+        background: var(--dark-color);
+        color: var(--light-color);
+        border-color: var(--dark-color);
       }
     </style>
   </head>
   <body>
-    <div class="container py-4">
-      <h1 class="text-center mb-4">Wallpaper Analyzer</h1>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light mb-4">
+      <div class="container">
+        <a class="navbar-brand" href="#">
+          <i class="bi bi-images me-2"></i>
+          Wallpaper Analyzer Pro
+        </a>
+        <button class="settings-toggle" id="settingsToggle">
+          <i class="bi bi-gear"></i>
+          <span>Settings</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+      <!-- Analysis Form -->
+      <div class="config-section mb-4">
+        <form id="analysisForm">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Wallpaper Directory</label>
+              <div class="input-group">
+                <input
+                  type="text"
+                  class="form-control"
+                  id="directory"
+                  placeholder="Enter directory path"
+                  required
+                />
+                <button
+                  class="btn btn-outline-secondary"
+                  type="button"
+                  id="browseButton"
+                >
+                  <i class="bi bi-folder"></i>
+                </button>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Worker Threads</label>
+              <select class="form-select" id="workers">
+                <option value="4">4 threads</option>
+                <option value="8">8 threads</option>
+                <option value="16" selected>16 threads</option>
+                <option value="32">32 threads</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Similarity Threshold</label>
+              <div class="d-flex align-items-center">
+                <input
+                  type="range"
+                  class="form-range"
+                  id="similarity"
+                  min="75"
+                  max="95"
+                  step="5"
+                  value="85"
+                />
+                <span class="ms-2" id="similarityValue">0.85</span>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Aesthetic Threshold</label>
+              <div class="d-flex align-items-center">
+                <input
+                  type="range"
+                  class="form-range"
+                  id="threshold"
+                  min="70"
+                  max="90"
+                  step="5"
+                  value="80"
+                />
+                <span class="ms-2" id="thresholdValue">0.80</span>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Image Limit</label>
+              <select class="form-select" id="limit">
+                <option value="0" selected>No Limit</option>
+                <option value="100">100 images</option>
+                <option value="500">500 images</option>
+                <option value="1000">1000 images</option>
+                <option value="5000">5000 images</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <div class="form-check form-check-inline">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="recursive"
+                  checked
+                />
+                <label class="form-check-label" for="recursive"
+                  >Search Subdirectories</label
+                >
+              </div>
+              <div class="form-check form-check-inline">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="skip_duplicates"
+                />
+                <label class="form-check-label" for="skip_duplicates"
+                  >Skip Duplicate Detection</label
+                >
+              </div>
+              <div class="form-check form-check-inline">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="skip_aesthetics"
+                />
+                <label class="form-check-label" for="skip_aesthetics"
+                  >Skip Aesthetic Analysis</label
+                >
+              </div>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search me-2"></i>Analyze Wallpapers
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
 
       <!-- Progress Section -->
-      <div id="progressSection" class="progress-section d-none">
-        <div class="d-flex justify-content-between align-items-center mb-2">
+      <div id="progressSection" class="config-section d-none">
+        <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">Analysis Progress</h5>
           <span id="statusMessage" class="text-muted"></span>
         </div>
@@ -110,132 +493,646 @@
             class="progress-bar progress-bar-striped progress-bar-animated"
             role="progressbar"
             style="width: 0%"
-            aria-valuenow="0"
-            aria-valuemin="0"
-            aria-valuemax="100"
           ></div>
         </div>
         <div id="progressDetails" class="progress-details"></div>
       </div>
 
-      <!-- Analysis Form -->
-      <form id="analysisForm" class="mb-4">
-        <div class="row g-3">
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="directory" class="form-label"
-                >Wallpaper Directory</label
-              >
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="row align-items-center">
+          <div class="col-md-4">
+            <div class="search-box">
+              <i class="bi bi-search"></i>
               <input
                 type="text"
                 class="form-control"
-                id="directory"
-                placeholder="Enter directory path"
-                required
+                id="searchInput"
+                placeholder="Search images..."
               />
             </div>
           </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="workers" class="form-label">Worker Threads</label>
-              <select class="form-select" id="workers">
-                <option value="4">4 threads</option>
-                <option value="8">8 threads</option>
-                <option value="16" selected>16 threads</option>
-                <option value="32">32 threads</option>
-              </select>
-            </div>
+          <div class="col-md-3">
+            <select class="form-select sort-dropdown" id="sortSelect">
+              <option value="name">Sort by Name</option>
+              <option value="date">Sort by Date</option>
+              <option value="size">Sort by Size</option>
+              <option value="score">Sort by Score</option>
+            </select>
           </div>
-          <div class="col-md-4">
-            <div class="form-group">
-              <label for="similarity" class="form-label"
-                >Similarity Threshold</label
-              >
-              <select class="form-select" id="similarity">
-                <option value="0.95">Very Strict (0.95)</option>
-                <option value="0.90">Strict (0.90)</option>
-                <option value="0.85" selected>Normal (0.85)</option>
-                <option value="0.80">Loose (0.80)</option>
-                <option value="0.75">Very Loose (0.75)</option>
-              </select>
-            </div>
+          <div class="col-md-3">
+            <select class="form-select" id="filterSelect">
+              <option value="all">All Images</option>
+              <option value="duplicates">Duplicates</option>
+              <option value="highScore">High Score</option>
+              <option value="lowScore">Low Score</option>
+            </select>
           </div>
-          <div class="col-md-4">
-            <div class="form-group">
-              <label for="threshold" class="form-label"
-                >Aesthetic Threshold</label
-              >
-              <select class="form-select" id="threshold">
-                <option value="0.90">Very High (0.90)</option>
-                <option value="0.85">High (0.85)</option>
-                <option value="0.80" selected>Normal (0.80)</option>
-                <option value="0.75">Low (0.75)</option>
-                <option value="0.70">Very Low (0.70)</option>
-              </select>
+          <div class="col-md-2">
+            <div class="view-toggle">
+              <button class="btn active" data-view="grid">
+                <i class="bi bi-grid"></i>
+              </button>
+              <button class="btn" data-view="list">
+                <i class="bi bi-list"></i>
+              </button>
             </div>
-          </div>
-          <div class="col-md-4">
-            <div class="form-group">
-              <label for="limit" class="form-label">Image Limit</label>
-              <select class="form-select" id="limit">
-                <option value="0" selected>No Limit</option>
-                <option value="100">100 images</option>
-                <option value="500">500 images</option>
-                <option value="1000">1000 images</option>
-                <option value="5000">5000 images</option>
-              </select>
-            </div>
-          </div>
-          <div class="col-12">
-            <div class="form-check form-check-inline">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="recursive"
-                checked
-              />
-              <label class="form-check-label" for="recursive"
-                >Search Subdirectories</label
-              >
-            </div>
-            <div class="form-check form-check-inline">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="skip_duplicates"
-              />
-              <label class="form-check-label" for="skip_duplicates"
-                >Skip Duplicate Detection</label
-              >
-            </div>
-            <div class="form-check form-check-inline">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="skip_aesthetics"
-              />
-              <label class="form-check-label" for="skip_aesthetics"
-                >Skip Aesthetic Analysis</label
-              >
-            </div>
-          </div>
-          <div class="col-12">
-            <button type="submit" class="btn btn-primary">
-              <i class="bi bi-search"></i> Analyze Wallpapers
-            </button>
           </div>
         </div>
-      </form>
+      </div>
+
+      <!-- Category Selector -->
+      <div class="category-selector">
+        <div class="btn-group">
+          <button class="btn active" data-category="all">All Images</button>
+          <button class="btn" data-category="duplicates">Duplicates</button>
+          <button class="btn" data-category="high-score">High Score</button>
+          <button class="btn" data-category="low-score">Low Score</button>
+          <button class="btn" data-category="nature">Nature</button>
+          <button class="btn" data-category="abstract">Abstract</button>
+          <button class="btn" data-category="minimal">Minimal</button>
+        </div>
+      </div>
 
       <!-- Results Section -->
-      <div id="resultsContainer"></div>
+      <div id="resultsContainer" class="image-grid"></div>
+
+      <!-- Batch Actions -->
+      <div class="batch-actions">
+        <span class="selected-count">0 selected</span>
+        <button class="btn btn-danger" id="deleteSelected">
+          <i class="bi bi-trash me-2"></i>Delete
+        </button>
+        <button class="btn btn-primary" id="organizeSelected">
+          <i class="bi bi-folder me-2"></i>Organize
+        </button>
+      </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settingsPanel">
+      <h5 class="mb-4">Settings</h5>
+      <div class="mb-3">
+        <label class="form-label">Theme</label>
+        <select class="form-select" id="themeSelect">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="system">System</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Image Quality</label>
+        <select class="form-select" id="qualitySelect">
+          <option value="high">High</option>
+          <option value="medium" selected>Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Grid Size</label>
+        <select class="form-select" id="gridSizeSelect">
+          <option value="small">Small</option>
+          <option value="medium" selected>Medium</option>
+          <option value="large">Large</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="showFilenames" />
+          <label class="form-check-label" for="showFilenames"
+            >Show filenames</label
+          >
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="autoOrganize" />
+          <label class="form-check-label" for="autoOrganize"
+            >Auto-organize on analysis</label
+          >
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="form-check form-switch">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="showThumbnails"
+            checked
+          />
+          <label class="form-check-label" for="showThumbnails"
+            >Show thumbnails</label
+          >
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="form-check form-switch">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="enableNotifications"
+            checked
+          />
+          <label class="form-check-label" for="enableNotifications"
+            >Enable notifications</label
+          >
+        </div>
+      </div>
     </div>
 
     <!-- Toast Container -->
     <div id="toastContainer" class="toast-container"></div>
 
+    <!-- Image Preview Modal -->
+    <div class="image-preview-modal" id="imagePreviewModal">
+      <div class="image-preview-content">
+        <span class="image-preview-close">&times;</span>
+        <img src="" alt="Preview" id="previewImage" />
+        <div class="image-preview-info">
+          <h5 id="previewTitle"></h5>
+          <p id="previewScore"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-    <script src="/static/js/app.js"></script>
+    <script>
+      // Initialize Socket.IO
+      const socket = io({
+        transports: ["websocket", "polling"],
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 60000,
+        autoConnect: true,
+        forceNew: true,
+        pingTimeout: 60000,
+        pingInterval: 25000,
+      });
+
+      // DOM Elements
+      const form = document.getElementById("analysisForm");
+      const progressBar = document.getElementById("progressBar");
+      const statusMessage = document.getElementById("statusMessage");
+      const resultsContainer = document.getElementById("resultsContainer");
+      const progressSection = document.getElementById("progressSection");
+      const settingsPanel = document.getElementById("settingsPanel");
+      const settingsToggle = document.getElementById("settingsToggle");
+      const searchInput = document.getElementById("searchInput");
+      const sortSelect = document.getElementById("sortSelect");
+      const filterSelect = document.getElementById("filterSelect");
+      const viewToggle = document.querySelector(".view-toggle");
+      const batchActions = document.querySelector(".batch-actions");
+      const selectedCount = document.querySelector(".selected-count");
+
+      // State
+      let selectedImages = new Set();
+      let currentView = "grid";
+      let currentResults = null;
+
+      // Event Listeners
+      settingsToggle.addEventListener("click", () => {
+        settingsPanel.classList.toggle("show");
+      });
+
+      document.getElementById("similarity").addEventListener("input", (e) => {
+        document.getElementById("similarityValue").textContent = (
+          e.target.value / 100
+        ).toFixed(2);
+      });
+
+      document.getElementById("threshold").addEventListener("input", (e) => {
+        document.getElementById("thresholdValue").textContent = (
+          e.target.value / 100
+        ).toFixed(2);
+      });
+
+      viewToggle.addEventListener("click", (e) => {
+        if (e.target.tagName === "BUTTON") {
+          viewToggle
+            .querySelectorAll("button")
+            .forEach((btn) => btn.classList.remove("active"));
+          e.target.classList.add("active");
+          currentView = e.target.dataset.view;
+          updateView();
+        }
+      });
+
+      // Socket.IO event handlers
+      socket.on("connect", () => {
+        showToast("Connected to server", "success");
+      });
+
+      socket.on("connect_error", (error) => {
+        console.error("Socket.IO connection error:", error);
+        showToast(`Connection error: ${error.message}`, "error");
+      });
+
+      socket.on("progress", (data) => {
+        updateProgress(data);
+      });
+
+      socket.on("analysis_complete", (data) => {
+        currentResults = data;
+        filterAndDisplayResults(data);
+        showToast("Analysis completed successfully!", "success");
+      });
+
+      socket.on("error", (error) => {
+        console.error("Socket.IO error:", error);
+        showToast(`Error: ${error.message}`, "error");
+      });
+
+      socket.on("disconnect", (reason) => {
+        console.warn("Socket.IO disconnected:", reason);
+        if (reason === "io server disconnect") {
+          showToast("Server disconnected. Please refresh the page.", "error");
+        }
+      });
+
+      socket.on("reconnect_attempt", (attemptNumber) => {
+        console.log("Attempting to reconnect...", attemptNumber);
+        showToast("Attempting to reconnect...", "info");
+      });
+
+      socket.on("reconnect", (attemptNumber) => {
+        console.log("Reconnected after", attemptNumber, "attempts");
+        showToast("Reconnected successfully", "success");
+      });
+
+      socket.on("reconnect_error", (error) => {
+        console.error("Reconnection error:", error);
+        showToast("Failed to reconnect. Please refresh the page.", "error");
+      });
+
+      // Helper functions
+      function updateProgress(data) {
+        progressBar.style.width = `${data.progress}%`;
+        statusMessage.textContent = data.message || "Processing...";
+        progressSection.classList.remove("d-none");
+
+        // Update progress details
+        const progressDetails = document.getElementById("progressDetails");
+        if (data.total_images) {
+          progressDetails.innerHTML = `
+            <div class="progress-stats">
+              <span class="time">${new Date().toLocaleTimeString()}</span>
+              <span class="count">${data.processed_images || 0} / ${
+            data.total_images
+          } images</span>
+            </div>
+          `;
+        }
+      }
+
+      function displayResults(data) {
+        resultsContainer.innerHTML = "";
+
+        if (!data || (!data.duplicates?.length && !data.aesthetic_scores)) {
+          resultsContainer.innerHTML = `
+            <div class="text-center py-5">
+              <i class="bi bi-images" style="font-size: 3rem; color: var(--gray-400);"></i>
+              <p class="text-muted mt-3">No results found</p>
+            </div>
+          `;
+          return;
+        }
+
+        // Create a combined array of all images
+        let allImages = [];
+
+        // Add duplicates
+        if (data.duplicates && data.duplicates.length > 0) {
+          data.duplicates.forEach((group, groupIndex) => {
+            group.forEach((path, index) => {
+              allImages.push({
+                path: path,
+                filename: path.split("/").pop(),
+                type: "duplicate",
+                groupIndex: groupIndex,
+                isOriginal: index === 0,
+              });
+            });
+          });
+        }
+
+        // Add aesthetic scores
+        if (data.aesthetic_scores) {
+          Object.entries(data.aesthetic_scores).forEach(([path, score]) => {
+            allImages.push({
+              path: path,
+              filename: path.split("/").pop(),
+              type: "aesthetic",
+              score: score,
+            });
+          });
+        }
+
+        // Shuffle the array for randomization
+        allImages = shuffleArray(allImages);
+
+        // Create image cards
+        allImages.forEach((image) => {
+          const imageCard = createImageCard(image);
+          if (imageCard) {
+            resultsContainer.appendChild(imageCard);
+          }
+        });
+      }
+
+      function createImageCard(image) {
+        const card = document.createElement("div");
+        card.className = "image-card";
+
+        // Add random rotation for visual interest
+        const rotation = (Math.random() - 0.5) * 2; // Random value between -1 and 1
+        card.style.transform = `rotate(${rotation}deg)`;
+
+        const img = document.createElement("img");
+        img.src = `/api/image?path=${encodeURIComponent(image.path)}`;
+        img.alt = image.filename;
+        img.loading = "lazy";
+
+        const overlay = document.createElement("div");
+        overlay.className = "overlay";
+
+        // Add category-specific indicators
+        if (image.type === "duplicate") {
+          const indicator = document.createElement("div");
+          indicator.className = `duplicate-indicator ${
+            image.isOriginal ? "original" : "duplicate"
+          }`;
+          indicator.textContent = image.isOriginal ? "Original" : "Duplicate";
+          overlay.appendChild(indicator);
+        } else if (image.type === "aesthetic") {
+          const score = document.createElement("div");
+          score.className = "score-indicator";
+          score.textContent = `${(image.score * 100).toFixed(1)}%`;
+          overlay.appendChild(score);
+        }
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "btn-floating";
+        deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+        deleteBtn.onclick = (e) => {
+          e.stopPropagation();
+          deleteImage(image.path);
+        };
+
+        const organizeBtn = document.createElement("button");
+        organizeBtn.className = "btn-floating";
+        organizeBtn.innerHTML = '<i class="bi bi-folder"></i>';
+        organizeBtn.onclick = (e) => {
+          e.stopPropagation();
+          organizeImage(image.path);
+        };
+
+        overlay.appendChild(deleteBtn);
+        overlay.appendChild(organizeBtn);
+
+        card.appendChild(img);
+        card.appendChild(overlay);
+
+        // Add click handler for preview
+        card.addEventListener("click", () => {
+          const modal = document.getElementById("imagePreviewModal");
+          const previewImg = document.getElementById("previewImage");
+          const previewTitle = document.getElementById("previewTitle");
+          const previewScore = document.getElementById("previewScore");
+
+          previewImg.src = img.src;
+          if (document.getElementById("showFilenames").checked) {
+            previewTitle.textContent = image.filename;
+          }
+          if (image.score) {
+            previewScore.textContent = `Score: ${(image.score * 100).toFixed(
+              1
+            )}%`;
+          }
+
+          modal.classList.add("show");
+        });
+
+        return card;
+      }
+
+      function showToast(message, type = "info") {
+        const toast = document.createElement("div");
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.setAttribute("role", "alert");
+        toast.setAttribute("aria-live", "assertive");
+        toast.setAttribute("aria-atomic", "true");
+
+        // Add error icon for error messages
+        const icon =
+          type === "error"
+            ? '<i class="bi bi-exclamation-circle me-2"></i>'
+            : "";
+
+        toast.innerHTML = `
+          <div class="d-flex">
+            <div class="toast-body">
+              ${icon}${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+          </div>
+        `;
+
+        document.getElementById("toastContainer").appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast, {
+          autohide: type !== "error", // Keep error messages visible until manually dismissed
+          delay: type === "error" ? 5000 : 3000,
+        });
+        bsToast.show();
+
+        toast.addEventListener("hidden.bs.toast", () => {
+          toast.remove();
+        });
+      }
+
+      function toggleImageSelection(path, card) {
+        if (selectedImages.has(path)) {
+          selectedImages.delete(path);
+          card.classList.remove("selected");
+        } else {
+          selectedImages.add(path);
+          card.classList.add("selected");
+        }
+
+        selectedCount.textContent = `${selectedImages.size} selected`;
+        batchActions.classList.toggle("show", selectedImages.size > 0);
+      }
+
+      function updateView() {
+        resultsContainer.className =
+          currentView === "grid" ? "image-grid" : "image-list";
+      }
+
+      // Form submission
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        // Show loading state
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.innerHTML;
+        submitButton.disabled = true;
+        submitButton.innerHTML = `
+          <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          Analyzing...
+        `;
+
+        const formData = {
+          directory: document.getElementById("directory").value,
+          similarity_threshold: parseFloat(
+            document.getElementById("similarityValue").textContent
+          ),
+          aesthetic_threshold: parseFloat(
+            document.getElementById("thresholdValue").textContent
+          ),
+          recursive: document.getElementById("recursive").checked,
+          skip_duplicates: document.getElementById("skip_duplicates").checked,
+          skip_aesthetics: document.getElementById("skip_aesthetics").checked,
+          limit: parseInt(document.getElementById("limit").value),
+        };
+
+        try {
+          const response = await fetch("/api/analyze", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(formData),
+          });
+
+          let data;
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            data = await response.json();
+          } else {
+            throw new Error("Server response was not JSON");
+          }
+
+          if (!response.ok) {
+            throw new Error(data.error || "Analysis failed");
+          }
+
+          showToast("Analysis started", "info");
+        } catch (error) {
+          console.error("Error:", error);
+          showToast(error.message || "Failed to start analysis", "error");
+        } finally {
+          // Reset button state
+          submitButton.disabled = false;
+          submitButton.innerHTML = originalButtonText;
+        }
+      });
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", () => {
+        // Set initial values
+        document.getElementById("similarityValue").textContent = "0.85";
+        document.getElementById("thresholdValue").textContent = "0.80";
+      });
+
+      document.getElementById("progressSection").classList.remove("d-none");
+      document.getElementById("statusMessage").textContent = "Initializing...";
+      progressBar.style.width = "5%"; // Indicate progress start
+
+      if (resultsContainer.innerHTML.trim() === "") {
+        resultsContainer.innerHTML =
+          '<p class="text-muted text-center">No results found.</p>';
+      }
+
+      // Add to JavaScript
+      document
+        .getElementById("imagePreviewModal")
+        .addEventListener("click", (e) => {
+          if (
+            e.target.classList.contains("image-preview-modal") ||
+            e.target.classList.contains("image-preview-close")
+          ) {
+            e.target.closest(".image-preview-modal").classList.remove("show");
+          }
+        });
+
+      // Close settings panel when clicking outside
+      document.addEventListener("click", (e) => {
+        if (
+          !settingsPanel.contains(e.target) &&
+          !settingsToggle.contains(e.target)
+        ) {
+          settingsPanel.classList.remove("show");
+        }
+      });
+
+      // Close settings panel when pressing Escape key
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          settingsPanel.classList.remove("show");
+        }
+      });
+
+      // Category filtering
+      const categoryButtons = document.querySelectorAll(
+        ".category-selector .btn"
+      );
+      let currentCategory = "all";
+
+      categoryButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          categoryButtons.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          currentCategory = btn.dataset.category;
+          filterAndDisplayResults(currentResults);
+        });
+      });
+
+      function filterAndDisplayResults(data) {
+        if (!data) return;
+
+        let filteredData = { ...data };
+
+        switch (currentCategory) {
+          case "duplicates":
+            filteredData.aesthetic_scores = {};
+            break;
+          case "high-score":
+            filteredData.duplicates = [];
+            filteredData.aesthetic_scores = Object.fromEntries(
+              Object.entries(data.aesthetic_scores || {}).filter(
+                ([_, score]) => score > 0.6
+              )
+            );
+            break;
+          case "low-score":
+            filteredData.duplicates = [];
+            filteredData.aesthetic_scores = Object.fromEntries(
+              Object.entries(data.aesthetic_scores || {}).filter(
+                ([_, score]) => score < 0.6
+              )
+            );
+            break;
+          case "nature":
+          case "abstract":
+          case "minimal":
+            // These categories would require additional image classification
+            // For now, we'll just show all images
+            break;
+        }
+
+        displayResults(filteredData);
+      }
+
+      // Fisher-Yates shuffle algorithm
+      function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+      }
+    </script>
   </body>
 </html>
