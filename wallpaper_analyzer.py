@@ -16,6 +16,9 @@ import multiprocessing
 from functools import lru_cache
 from collections import defaultdict
 import time
+import sqlite3
+import json
+from datetime import datetime
 
 # Configuration
 class Config:
@@ -36,6 +39,114 @@ class Config:
     
     # Logging settings
     ENABLE_STDOUT_LOGGING = False
+    
+    # Database settings
+    DB_PATH = 'analysis_cache.db'
+
+# Database initialization
+def init_db():
+    conn = sqlite3.connect(Config.DB_PATH)
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS analysis_results (
+            directory TEXT PRIMARY KEY,
+            similarity_threshold REAL,
+            aesthetic_threshold REAL,
+            recursive BOOLEAN,
+            skip_duplicates BOOLEAN,
+            skip_aesthetics BOOLEAN,
+            limit_count INTEGER,
+            total_images INTEGER,
+            processed_images INTEGER,
+            duplicates TEXT,
+            aesthetic_scores TEXT,
+            last_modified TIMESTAMP,
+            last_analyzed TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# Initialize database on startup
+init_db()
+
+def get_cached_results(directory, params):
+    """Get cached results if they exist and match the parameters"""
+    conn = sqlite3.connect(Config.DB_PATH)
+    c = conn.cursor()
+    
+    c.execute('''
+        SELECT * FROM analysis_results 
+        WHERE directory = ? 
+        AND similarity_threshold = ?
+        AND aesthetic_threshold = ?
+        AND recursive = ?
+        AND skip_duplicates = ?
+        AND skip_aesthetics = ?
+        AND limit_count = ?
+    ''', (
+        directory,
+        params['similarity_threshold'],
+        params['aesthetic_threshold'],
+        params['recursive'],
+        params['skip_duplicates'],
+        params['skip_aesthetics'],
+        params['limit']
+    ))
+    
+    result = c.fetchone()
+    conn.close()
+    
+    if result:
+        # Check if directory contents have changed
+        last_modified = datetime.fromisoformat(result[11])
+        current_modified = datetime.fromtimestamp(os.path.getmtime(directory))
+        
+        if current_modified <= last_modified:
+            # Convert stored JSON strings back to Python objects
+            return {
+                'directory': result[0],
+                'total_images': result[7],
+                'processed_images': result[8],
+                'duplicates': json.loads(result[9]),
+                'aesthetic_scores': json.loads(result[10]),
+                'cached': True
+            }
+    
+    return None
+
+def cache_results(directory, params, results):
+    """Cache analysis results in the database"""
+    conn = sqlite3.connect(Config.DB_PATH)
+    c = conn.cursor()
+    
+    # Get directory's last modified time
+    last_modified = datetime.fromtimestamp(os.path.getmtime(directory))
+    
+    c.execute('''
+        INSERT OR REPLACE INTO analysis_results 
+        (directory, similarity_threshold, aesthetic_threshold, recursive, 
+         skip_duplicates, skip_aesthetics, limit_count, total_images, 
+         processed_images, duplicates, aesthetic_scores, last_modified, last_analyzed)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        directory,
+        params['similarity_threshold'],
+        params['aesthetic_threshold'],
+        params['recursive'],
+        params['skip_duplicates'],
+        params['skip_aesthetics'],
+        params['limit'],
+        results['total_images'],
+        results['processed_images'],
+        json.dumps(results['duplicates']),
+        json.dumps(results['aesthetic_scores']),
+        last_modified.isoformat(),
+        datetime.now().isoformat()
+    ))
+    
+    conn.commit()
+    conn.close()
 
 # Logging setup
 handlers = [logging.FileHandler('analyzed.log')]
@@ -317,6 +428,23 @@ def analyze():
         if not directory or not os.path.exists(directory):
             return jsonify({'error': 'Invalid directory path'}), 400
 
+        # Prepare parameters for caching check
+        params = {
+            'similarity_threshold': float(data.get('similarity_threshold', Config.DEFAULT_SIMILARITY_THRESHOLD)),
+            'aesthetic_threshold': float(data.get('aesthetic_threshold', Config.DEFAULT_AESTHETIC_THRESHOLD)),
+            'recursive': data.get('recursive', False),
+            'skip_duplicates': data.get('skip_duplicates', False),
+            'skip_aesthetics': data.get('skip_aesthetics', False),
+            'limit': int(data.get('limit', 0))
+        }
+
+        # Check for cached results
+        cached_results = get_cached_results(directory, params)
+        if cached_results:
+            logger.info(f"Using cached results for directory: {directory}")
+            socketio.emit('analysis_complete', cached_results)
+            return jsonify(cached_results)
+
         def progress_callback(current, total, message=None):
             try:
                 progress = (current / total) * 100 if total > 0 else 0
@@ -333,12 +461,12 @@ def analyze():
         analyzer = WallpaperAnalyzer()
         results = analyzer.analyze_directory(
             directory=directory,
-            similarity_threshold=float(data.get('similarity_threshold', Config.DEFAULT_SIMILARITY_THRESHOLD)),
-            aesthetic_threshold=float(data.get('aesthetic_threshold', Config.DEFAULT_AESTHETIC_THRESHOLD)),
-            recursive=data.get('recursive', False),
-            skip_duplicates=data.get('skip_duplicates', False),
-            skip_aesthetics=data.get('skip_aesthetics', False),
-            limit=int(data.get('limit', 0)),
+            similarity_threshold=params['similarity_threshold'],
+            aesthetic_threshold=params['aesthetic_threshold'],
+            recursive=params['recursive'],
+            skip_duplicates=params['skip_duplicates'],
+            skip_aesthetics=params['skip_aesthetics'],
+            limit=params['limit'],
             progress_callback=progress_callback
         )
 
@@ -346,6 +474,9 @@ def analyze():
             # Convert NumPy float32 values to regular Python floats
             if 'aesthetic_scores' in results:
                 results['aesthetic_scores'] = {k: float(v) for k, v in results['aesthetic_scores'].items()}
+            
+            # Cache the results
+            cache_results(directory, params, results)
             
             analysis_results[directory] = results
             socketio.emit('analysis_complete', results)
