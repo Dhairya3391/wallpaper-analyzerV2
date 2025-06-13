@@ -2736,3 +2736,135 @@
 2025-06-13 10:17:43,089 - WallpaperAnalyzer - ERROR - Socket.IO error: handle_disconnect() takes 0 positional arguments but 1 was given
 2025-06-13 10:17:43,091 - socketio.server - INFO - emitting event "error" to all [/]
 2025-06-13 10:17:43,092 - engineio.server - INFO - zTUqx4qloI07OIuJAAAC: Sending packet MESSAGE data 2["error",{"message":"handle_disconnect() takes 0 positional arguments but 1 was given"}]
+2025-06-13 10:22:12,165 - engineio.server - INFO - Server initialized for eventlet.
+2025-06-13 10:22:16,793 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Sending packet OPEN data {'sid': 'piSF_Eb3RdiScbXpAAAA', 'upgrades': [], 'pingTimeout': 60000, 'pingInterval': 25000, 'maxPayload': 100000000.0}
+2025-06-13 10:22:16,793 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Received request to upgrade to websocket
+2025-06-13 10:22:16,794 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Upgrade to websocket successful
+2025-06-13 10:22:16,797 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Received packet MESSAGE data 0
+2025-06-13 10:22:16,798 - WallpaperAnalyzer - INFO - Client connected: yOO4rVUPiJC4vaC_AAAB
+2025-06-13 10:22:16,799 - socketio.server - INFO - emitting event "connection_status" to yOO4rVUPiJC4vaC_AAAB [/]
+2025-06-13 10:22:16,799 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Sending packet MESSAGE data 2["connection_status",{"status":"connected"}]
+2025-06-13 10:22:16,799 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Sending packet MESSAGE data 0{"sid":"yOO4rVUPiJC4vaC_AAAB"}
+2025-06-13 10:22:41,795 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Sending packet PING data None
+2025-06-13 10:22:41,798 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Received packet PONG data 
+2025-06-13 10:23:06,800 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Sending packet PING data None
+2025-06-13 10:23:06,801 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Received packet PONG data 
+2025-06-13 10:23:31,802 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Sending packet PING data None
+2025-06-13 10:23:31,806 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Received packet PONG data 
+2025-06-13 10:23:56,808 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Sending packet PING data None
+2025-06-13 10:23:56,810 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Received packet PONG data 
+2025-06-13 10:24:21,811 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Sending packet PING data None
+2025-06-13 10:24:21,814 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Received packet PONG data 
+2025-06-13 10:24:27,750 - WallpaperAnalyzer - ERROR - Socket.IO error: handle_disconnect() takes 0 positional arguments but 1 was given
+2025-06-13 10:24:27,751 - socketio.server - INFO - emitting event "error" to all [/]
+2025-06-13 10:24:27,752 - engineio.server - INFO - piSF_Eb3RdiScbXpAAAA: Sending packet MESSAGE data 2["error",{"message":"handle_disconnect() takes 0 positional arguments but 1 was given"}]
+2025-06-13 10:24:31,481 - engineio.server - INFO - Server initialized for eventlet.
+2025-06-13 10:24:31,503 - engineio.server - INFO - YuVtLd5bQ1CKS1xXAAAA: Sending packet OPEN data {'sid': 'YuVtLd5bQ1CKS1xXAAAA', 'upgrades': [], 'pingTimeout': 60000, 'pingInterval': 25000, 'maxPayload': 100000000.0}
+2025-06-13 10:24:31,503 - engineio.server - INFO - YuVtLd5bQ1CKS1xXAAAA: Received request to upgrade to websocket
+2025-06-13 10:24:31,503 - engineio.server - INFO - YuVtLd5bQ1CKS1xXAAAA: Upgrade to websocket successful
+2025-06-13 10:24:31,506 - engineio.server - INFO - YuVtLd5bQ1CKS1xXAAAA: Received packet MESSAGE data 0
+2025-06-13 10:24:31,506 - WallpaperAnalyzer - INFO - Client connected: wkzgwgfi0WZY0_5_AAAB
+2025-06-13 10:24:31,506 - socketio.server - INFO - emitting event "connection_status" to wkzgwgfi0WZY0_5_AAAB [/]
+2025-06-13 10:24:31,506 - engineio.server - INFO - YuVtLd5bQ1CKS1xXAAAA: Sending packet MESSAGE data 2["connection_status",{"status":"connected"}]
+2025-06-13 10:24:31,506 - engineio.server - INFO - YuVtLd5bQ1CKS1xXAAAA: Sending packet MESSAGE data 0{"sid":"wkzgwgfi0WZY0_5_AAAB"}
+2025-06-13 10:24:32,707 - WallpaperAnalyzer - ERROR - Socket.IO error: handle_disconnect() takes 0 positional arguments but 1 was given
+2025-06-13 10:24:32,708 - socketio.server - INFO - emitting event "error" to all [/]
+2025-06-13 10:24:32,708 - engineio.server - INFO - YuVtLd5bQ1CKS1xXAAAA: Sending packet MESSAGE data 2["error",{"message":"handle_disconnect() takes 0 positional arguments but 1 was given"}]
+2025-06-13 10:24:32,739 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Sending packet OPEN data {'sid': '-y6DU09FQXT3Ipe9AAAC', 'upgrades': [], 'pingTimeout': 60000, 'pingInterval': 25000, 'maxPayload': 100000000.0}
+2025-06-13 10:24:32,739 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Received request to upgrade to websocket
+2025-06-13 10:24:32,740 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Upgrade to websocket successful
+2025-06-13 10:24:32,765 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Received packet MESSAGE data 0
+2025-06-13 10:24:32,766 - WallpaperAnalyzer - INFO - Client connected: w6hSAVhy-trkZJunAAAD
+2025-06-13 10:24:32,766 - socketio.server - INFO - emitting event "connection_status" to w6hSAVhy-trkZJunAAAD [/]
+2025-06-13 10:24:32,781 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Sending packet MESSAGE data 2["connection_status",{"status":"connected"}]
+2025-06-13 10:24:32,782 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Sending packet MESSAGE data 0{"sid":"w6hSAVhy-trkZJunAAAD"}
+2025-06-13 10:24:57,742 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Sending packet PING data None
+2025-06-13 10:24:57,744 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Received packet PONG data 
+2025-06-13 10:25:22,746 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Sending packet PING data None
+2025-06-13 10:25:22,751 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Received packet PONG data 
+2025-06-13 10:25:47,752 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Sending packet PING data None
+2025-06-13 10:25:47,757 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Received packet PONG data 
+2025-06-13 10:26:12,759 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Sending packet PING data None
+2025-06-13 10:26:12,761 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Received packet PONG data 
+2025-06-13 10:26:37,763 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Sending packet PING data None
+2025-06-13 10:26:37,766 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Received packet PONG data 
+2025-06-13 10:27:02,768 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Sending packet PING data None
+2025-06-13 10:27:02,769 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Received packet PONG data 
+2025-06-13 10:27:15,246 - WallpaperAnalyzer - ERROR - Socket.IO error: handle_disconnect() takes 0 positional arguments but 1 was given
+2025-06-13 10:27:15,247 - socketio.server - INFO - emitting event "error" to all [/]
+2025-06-13 10:27:15,247 - engineio.server - INFO - -y6DU09FQXT3Ipe9AAAC: Sending packet MESSAGE data 2["error",{"message":"handle_disconnect() takes 0 positional arguments but 1 was given"}]
+2025-06-13 10:27:19,934 - engineio.server - INFO - Server initialized for eventlet.
+2025-06-13 10:27:21,742 - engineio.server - INFO - Esxp9G-TVrJUd2zhAAAA: Sending packet OPEN data {'sid': 'Esxp9G-TVrJUd2zhAAAA', 'upgrades': [], 'pingTimeout': 60000, 'pingInterval': 25000, 'maxPayload': 100000000.0}
+2025-06-13 10:27:21,743 - engineio.server - INFO - Esxp9G-TVrJUd2zhAAAA: Received request to upgrade to websocket
+2025-06-13 10:27:21,743 - engineio.server - INFO - Esxp9G-TVrJUd2zhAAAA: Upgrade to websocket successful
+2025-06-13 10:27:21,747 - engineio.server - INFO - Esxp9G-TVrJUd2zhAAAA: Received packet MESSAGE data 0
+2025-06-13 10:27:21,748 - WallpaperAnalyzer - INFO - Client connected: xBx-xL1Q7ZjQesQAAAAB
+2025-06-13 10:27:21,749 - socketio.server - INFO - emitting event "connection_status" to xBx-xL1Q7ZjQesQAAAAB [/]
+2025-06-13 10:27:21,749 - engineio.server - INFO - Esxp9G-TVrJUd2zhAAAA: Sending packet MESSAGE data 2["connection_status",{"status":"connected"}]
+2025-06-13 10:27:21,750 - engineio.server - INFO - Esxp9G-TVrJUd2zhAAAA: Sending packet MESSAGE data 0{"sid":"xBx-xL1Q7ZjQesQAAAAB"}
+2025-06-13 10:27:21,998 - WallpaperAnalyzer - ERROR - Socket.IO error: handle_disconnect() takes 0 positional arguments but 1 was given
+2025-06-13 10:27:21,998 - socketio.server - INFO - emitting event "error" to all [/]
+2025-06-13 10:27:21,999 - engineio.server - INFO - Esxp9G-TVrJUd2zhAAAA: Sending packet MESSAGE data 2["error",{"message":"handle_disconnect() takes 0 positional arguments but 1 was given"}]
+2025-06-13 10:27:22,021 - engineio.server - INFO - wuT1jDvH4sfJsLoQAAAC: Sending packet OPEN data {'sid': 'wuT1jDvH4sfJsLoQAAAC', 'upgrades': [], 'pingTimeout': 60000, 'pingInterval': 25000, 'maxPayload': 100000000.0}
+2025-06-13 10:27:22,022 - engineio.server - INFO - wuT1jDvH4sfJsLoQAAAC: Received request to upgrade to websocket
+2025-06-13 10:27:22,022 - engineio.server - INFO - wuT1jDvH4sfJsLoQAAAC: Upgrade to websocket successful
+2025-06-13 10:27:22,043 - engineio.server - INFO - wuT1jDvH4sfJsLoQAAAC: Received packet MESSAGE data 0
+2025-06-13 10:27:22,045 - WallpaperAnalyzer - INFO - Client connected: tvMkcOT0BOUWaqC3AAAD
+2025-06-13 10:27:22,045 - socketio.server - INFO - emitting event "connection_status" to tvMkcOT0BOUWaqC3AAAD [/]
+2025-06-13 10:27:22,046 - engineio.server - INFO - wuT1jDvH4sfJsLoQAAAC: Sending packet MESSAGE data 2["connection_status",{"status":"connected"}]
+2025-06-13 10:27:22,046 - engineio.server - INFO - wuT1jDvH4sfJsLoQAAAC: Sending packet MESSAGE data 0{"sid":"tvMkcOT0BOUWaqC3AAAD"}
+2025-06-13 10:27:23,821 - WallpaperAnalyzer - ERROR - Socket.IO error: handle_disconnect() takes 0 positional arguments but 1 was given
+2025-06-13 10:27:23,821 - socketio.server - INFO - emitting event "error" to all [/]
+2025-06-13 10:27:23,821 - engineio.server - INFO - wuT1jDvH4sfJsLoQAAAC: Sending packet MESSAGE data 2["error",{"message":"handle_disconnect() takes 0 positional arguments but 1 was given"}]
+2025-06-13 10:27:23,842 - engineio.server - INFO - edabid1aFPXn0zavAAAE: Sending packet OPEN data {'sid': 'edabid1aFPXn0zavAAAE', 'upgrades': [], 'pingTimeout': 60000, 'pingInterval': 25000, 'maxPayload': 100000000.0}
+2025-06-13 10:27:23,842 - engineio.server - INFO - edabid1aFPXn0zavAAAE: Received request to upgrade to websocket
+2025-06-13 10:27:23,842 - engineio.server - INFO - edabid1aFPXn0zavAAAE: Upgrade to websocket successful
+2025-06-13 10:27:23,860 - engineio.server - INFO - edabid1aFPXn0zavAAAE: Received packet MESSAGE data 0
+2025-06-13 10:27:23,861 - WallpaperAnalyzer - INFO - Client connected: BLRVkrCHciFHgQkpAAAF
+2025-06-13 10:27:23,861 - socketio.server - INFO - emitting event "connection_status" to BLRVkrCHciFHgQkpAAAF [/]
+2025-06-13 10:27:23,861 - engineio.server - INFO - edabid1aFPXn0zavAAAE: Sending packet MESSAGE data 2["connection_status",{"status":"connected"}]
+2025-06-13 10:27:23,861 - engineio.server - INFO - edabid1aFPXn0zavAAAE: Sending packet MESSAGE data 0{"sid":"BLRVkrCHciFHgQkpAAAF"}
+2025-06-13 10:27:24,039 - WallpaperAnalyzer - ERROR - Socket.IO error: handle_disconnect() takes 0 positional arguments but 1 was given
+2025-06-13 10:27:24,039 - socketio.server - INFO - emitting event "error" to all [/]
+2025-06-13 10:27:24,040 - engineio.server - INFO - edabid1aFPXn0zavAAAE: Sending packet MESSAGE data 2["error",{"message":"handle_disconnect() takes 0 positional arguments but 1 was given"}]
+2025-06-13 10:27:24,053 - engineio.server - INFO - hR19LKZVoRfEL_eTAAAG: Sending packet OPEN data {'sid': 'hR19LKZVoRfEL_eTAAAG', 'upgrades': [], 'pingTimeout': 60000, 'pingInterval': 25000, 'maxPayload': 100000000.0}
+2025-06-13 10:27:24,053 - engineio.server - INFO - hR19LKZVoRfEL_eTAAAG: Received request to upgrade to websocket
+2025-06-13 10:27:24,053 - engineio.server - INFO - hR19LKZVoRfEL_eTAAAG: Upgrade to websocket successful
+2025-06-13 10:27:24,069 - engineio.server - INFO - hR19LKZVoRfEL_eTAAAG: Received packet MESSAGE data 0
+2025-06-13 10:27:24,069 - WallpaperAnalyzer - INFO - Client connected: Zf3yEi3hNZ8eXuqNAAAH
+2025-06-13 10:27:24,070 - socketio.server - INFO - emitting event "connection_status" to Zf3yEi3hNZ8eXuqNAAAH [/]
+2025-06-13 10:27:24,070 - engineio.server - INFO - hR19LKZVoRfEL_eTAAAG: Sending packet MESSAGE data 2["connection_status",{"status":"connected"}]
+2025-06-13 10:27:24,070 - engineio.server - INFO - hR19LKZVoRfEL_eTAAAG: Sending packet MESSAGE data 0{"sid":"Zf3yEi3hNZ8eXuqNAAAH"}
+2025-06-13 10:27:24,438 - WallpaperAnalyzer - ERROR - Socket.IO error: handle_disconnect() takes 0 positional arguments but 1 was given
+2025-06-13 10:27:24,438 - socketio.server - INFO - emitting event "error" to all [/]
+2025-06-13 10:27:24,438 - engineio.server - INFO - hR19LKZVoRfEL_eTAAAG: Sending packet MESSAGE data 2["error",{"message":"handle_disconnect() takes 0 positional arguments but 1 was given"}]
+2025-06-13 10:27:24,453 - engineio.server - INFO - yTRdrg51q5V0kpWbAAAI: Sending packet OPEN data {'sid': 'yTRdrg51q5V0kpWbAAAI', 'upgrades': [], 'pingTimeout': 60000, 'pingInterval': 25000, 'maxPayload': 100000000.0}
+2025-06-13 10:27:24,453 - engineio.server - INFO - yTRdrg51q5V0kpWbAAAI: Received request to upgrade to websocket
+2025-06-13 10:27:24,454 - engineio.server - INFO - yTRdrg51q5V0kpWbAAAI: Upgrade to websocket successful
+2025-06-13 10:27:24,469 - engineio.server - INFO - yTRdrg51q5V0kpWbAAAI: Received packet MESSAGE data 0
+2025-06-13 10:27:24,470 - WallpaperAnalyzer - INFO - Client connected: 3XdggrLHO7K53LAgAAAJ
+2025-06-13 10:27:24,471 - socketio.server - INFO - emitting event "connection_status" to 3XdggrLHO7K53LAgAAAJ [/]
+2025-06-13 10:27:24,471 - engineio.server - INFO - yTRdrg51q5V0kpWbAAAI: Sending packet MESSAGE data 2["connection_status",{"status":"connected"}]
+2025-06-13 10:27:24,471 - engineio.server - INFO - yTRdrg51q5V0kpWbAAAI: Sending packet MESSAGE data 0{"sid":"3XdggrLHO7K53LAgAAAJ"}
+2025-06-13 10:27:24,512 - WallpaperAnalyzer - ERROR - Socket.IO error: handle_disconnect() takes 0 positional arguments but 1 was given
+2025-06-13 10:27:24,512 - socketio.server - INFO - emitting event "error" to all [/]
+2025-06-13 10:27:24,512 - engineio.server - INFO - yTRdrg51q5V0kpWbAAAI: Sending packet MESSAGE data 2["error",{"message":"handle_disconnect() takes 0 positional arguments but 1 was given"}]
+2025-06-13 10:27:24,527 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Sending packet OPEN data {'sid': 'seQdu0oB9u9pvC6VAAAK', 'upgrades': [], 'pingTimeout': 60000, 'pingInterval': 25000, 'maxPayload': 100000000.0}
+2025-06-13 10:27:24,527 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Received request to upgrade to websocket
+2025-06-13 10:27:24,527 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Upgrade to websocket successful
+2025-06-13 10:27:24,541 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Received packet MESSAGE data 0
+2025-06-13 10:27:24,542 - WallpaperAnalyzer - INFO - Client connected: L_kmCrfWfqiYRDLvAAAL
+2025-06-13 10:27:24,542 - socketio.server - INFO - emitting event "connection_status" to L_kmCrfWfqiYRDLvAAAL [/]
+2025-06-13 10:27:24,543 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Sending packet MESSAGE data 2["connection_status",{"status":"connected"}]
+2025-06-13 10:27:24,544 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Sending packet MESSAGE data 0{"sid":"L_kmCrfWfqiYRDLvAAAL"}
+2025-06-13 10:27:49,528 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Sending packet PING data None
+2025-06-13 10:27:49,530 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Received packet PONG data 
+2025-06-13 10:28:14,532 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Sending packet PING data None
+2025-06-13 10:28:14,536 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Received packet PONG data 
+2025-06-13 10:28:39,538 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Sending packet PING data None
+2025-06-13 10:28:39,541 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Received packet PONG data 
+2025-06-13 10:29:04,543 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Sending packet PING data None
+2025-06-13 10:29:04,545 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Received packet PONG data 
+2025-06-13 10:29:08,046 - WallpaperAnalyzer - ERROR - Socket.IO error: handle_disconnect() takes 0 positional arguments but 1 was given
+2025-06-13 10:29:08,047 - socketio.server - INFO - emitting event "error" to all [/]
+2025-06-13 10:29:08,047 - engineio.server - INFO - seQdu0oB9u9pvC6VAAAK: Sending packet MESSAGE data 2["error",{"message":"handle_disconnect() takes 0 positional arguments but 1 was given"}]
