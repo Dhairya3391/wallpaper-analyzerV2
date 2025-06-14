@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="nextprime">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,6 +11,57 @@
       type="text/css"
     />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        plugins: [require("daisyui")],
+        daisyui: {
+          themes: [
+            {
+              nextprime: {
+                "color-scheme": "dark",
+                primary: "oklch(0% 0 0)",
+                "primary-content": "oklch(100% 0 0)",
+                secondary: "oklch(55% 0.016 285.938)",
+                "secondary-content": "oklch(28% 0.091 267.935)",
+                accent: "oklch(70% 0 0)",
+                "accent-content": "oklch(14% 0 0)",
+                neutral: "oklch(37% 0.013 285.805)",
+                "neutral-content": "oklch(98% 0 0)",
+                "base-100": "oklch(14% 0.005 285.823)",
+                "base-200": "oklch(21% 0.006 285.885)",
+                "base-300": "oklch(27% 0.006 286.033)",
+                "base-content": "oklch(96% 0.001 286.375)",
+                info: "oklch(55% 0.046 257.417)",
+                "info-content": "oklch(97% 0.013 236.62)",
+                success: "oklch(90% 0.058 230.902)",
+                "success-content": "oklch(44% 0.011 73.639)",
+                warning: "oklch(90% 0.076 319.62)",
+                "warning-content": "oklch(66% 0.295 322.15)",
+                error: "oklch(98% 0.018 155.826)",
+                "error-content": "oklch(74% 0.16 232.661)",
+                "--rounded-box": "1rem",
+                "--rounded-btn": "0.5rem",
+                "--rounded-badge": "0.5rem",
+                "--radius-selector": "0.5rem",
+                "--radius-field": "2rem",
+                "--animation-btn": "0.25s",
+                "--animation-input": "0.25s",
+                "--btn-focus-scale": "0.98",
+                "--border-btn": "1px",
+                "--tab-border": "1px",
+                "--tab-radius": "0.5rem",
+                "--size-selector": "0.21875rem",
+                "--size-field": "0.25rem",
+                "--border": "1px",
+                "--depth": "1",
+                "--noise": "1",
+              },
+            },
+          ],
+        },
+      };
+    </script>
+
     <!-- Bootstrap Icons -->
     <link
       rel="stylesheet"
@@ -38,38 +89,7 @@
           showSettings: false,
           previewImage: null,
           socket: null,
-          currentTheme: "forest",
           clusters: [],
-          themes: [
-            "light",
-            "dark",
-            "cupcake",
-            "bumblebee",
-            "emerald",
-            "corporate",
-            "synthwave",
-            "retro",
-            "cyberpunk",
-            "valentine",
-            "halloween",
-            "garden",
-            "forest",
-            "aqua",
-            "pastel",
-            "fantasy",
-            "wireframe",
-            "black",
-            "luxury",
-            "dracula",
-            "cmyk",
-            "autumn",
-            "business",
-            "acid",
-            "lemonade",
-            "night",
-            "coffee",
-            "winter",
-          ],
           settings: {
             directory: "/Users/dhairya/Downloads/walls",
             similarity_threshold: 0.85,
@@ -79,11 +99,9 @@
             skip_aesthetics: false,
             limit: 0,
           },
+          selectedCluster: "",
 
           init() {
-            // Set default theme
-            document.documentElement.setAttribute("data-theme", "forest");
-
             // Initialize Socket.IO
             this.socket = io({
               transports: ["websocket", "polling"],
@@ -139,11 +157,6 @@
                 }
               });
             });
-          },
-
-          changeTheme(theme) {
-            document.documentElement.setAttribute("data-theme", theme);
-            this.currentTheme = theme;
           },
 
           analyzeDirectory() {
@@ -210,7 +223,9 @@
               const matchesSearch = image.path
                 .toLowerCase()
                 .includes(this.searchTerm.toLowerCase());
-              return matchesSearch;
+              const matchesCluster =
+                !this.selectedCluster || image.cluster === this.selectedCluster;
+              return matchesSearch && matchesCluster;
             });
 
             // Sort images by cluster and aesthetic score
@@ -350,18 +365,6 @@
         <a class="btn btn-ghost text-xl">Wallyzer</a>
       </div>
       <div class="flex-none gap-2">
-        <select
-          class="select select-bordered w-full max-w-xs"
-          x-model="currentTheme"
-          @change="changeTheme($event.target.value)"
-        >
-          <template x-for="theme in themes" :key="theme">
-            <option
-              :value="theme"
-              x-text="theme.charAt(0).toUpperCase() + theme.slice(1)"
-            ></option>
-          </template>
-        </select>
         <button class="btn btn-square btn-ghost" @click="showSettings = true">
           <i class="bi bi-gear"></i>
         </button>
@@ -403,18 +406,26 @@
       <div class="card bg-base-100 shadow-xl mb-4">
         <div class="card-body">
           <div class="flex flex-wrap gap-4 items-center">
-            <div class="form-control flex-1">
-              <div class="input-group">
-                <span class="flex items-center px-3 bg-base-200">
-                  <i class="bi bi-search"></i>
-                </span>
-                <input
-                  type="text"
-                  class="input input-bordered w-full"
-                  x-model="searchTerm"
-                  placeholder="Search images..."
-                />
-              </div>
+            <div class="form-control">
+              <input
+                type="text"
+                placeholder="Search images..."
+                class="input input-bordered w-full max-w-xs"
+                x-model="searchTerm"
+              />
+            </div>
+            <div class="form-control">
+              <select class="select select-bordered" x-model="selectedCluster">
+                <option value="">All Clusters</option>
+                <template x-for="cluster in clusters" :key="cluster.id">
+                  <option :value="cluster.id">
+                    Cluster <span x-text="cluster.id"></span> (<span
+                      x-text="cluster.size"
+                    ></span>
+                    images)
+                  </option>
+                </template>
+              </select>
             </div>
           </div>
         </div>
@@ -427,6 +438,7 @@
             <img
               :src="'/api/image?path=' + encodeURIComponent(image.path)"
               :alt="image.path"
+              loading="lazy"
               @click="showPreview = true; previewImage = image"
               class="w-full h-auto"
             />
@@ -559,6 +571,7 @@
         <div class="relative">
           <img
             :src="previewImage ? '/api/image?path=' + encodeURIComponent(previewImage.path) : ''"
+            loading="lazy"
             class="w-full h-auto"
           />
           <div class="preview-info">

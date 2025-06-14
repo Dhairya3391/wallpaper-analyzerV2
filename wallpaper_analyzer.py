@@ -30,13 +30,13 @@ class Config:
              torch.device("cpu")
     
     BATCH_SIZE = 64 if torch.backends.mps.is_available() else 32 if torch.cuda.is_available() else 8
-    MAX_WORKERS = 16 if torch.backends.mps.is_available() else multiprocessing.cpu_count()
+    MAX_WORKERS = 32 if torch.backends.mps.is_available() else multiprocessing.cpu_count()
     IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif'}
     DEFAULT_SIMILARITY_THRESHOLD = 0.85
     DEFAULT_AESTHETIC_THRESHOLD = 0.8
     
     # Clustering settings
-    MIN_CLUSTERS = 3
+    MIN_CLUSTERS = 5
     MAX_CLUSTERS = 10
     CLUSTER_FEATURE_DIM = 2048  # ResNet50 feature dimension
     
@@ -588,7 +588,7 @@ class WallpaperAnalyzer:
 # Flask routes
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return send_file('index.html')
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
