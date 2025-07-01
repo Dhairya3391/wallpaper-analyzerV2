@@ -9,7 +9,7 @@ import torch
 import torchvision.models as models
 import torchvision.transforms as transforms
 from concurrent.futures import ThreadPoolExecutor
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file
 from flask_socketio import SocketIO
 from flask_cors import CORS
 import multiprocessing
@@ -697,6 +697,7 @@ def main():
     """Main entry point for the application"""
     try:
         with app.app_context():
+            print(f"Server running at http://localhost:{Config.PORT}")
             socketio.run(
                 app,
                 host=Config.HOST,

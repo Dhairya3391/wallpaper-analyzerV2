@@ -1,0 +1,365 @@
+2025-06-16 09:13:31,943 - WallpaperAnalyzer - INFO - Client connected: 51_EMrzL-LVj_flYAAAB
+2025-06-16 09:13:43,280 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-16 09:13:43,281 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-16 09:13:43,282 - WallpaperAnalyzer - INFO - Starting new analysis
+2025-06-16 09:13:43,287 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-16 09:13:44,304 - WallpaperAnalyzer - INFO - Starting analysis of directory: /Users/dhairya/Downloads/walls
+2025-06-16 09:13:44,334 - WallpaperAnalyzer - INFO - Starting duplicate detection for 327 images
+2025-06-16 09:14:54,524 - WallpaperAnalyzer - INFO - Starting aesthetic analysis
+2025-06-16 09:15:27,223 - WallpaperAnalyzer - INFO - Starting image clustering
+2025-06-16 09:16:06,968 - WallpaperAnalyzer - INFO - Client connected: 7aArwoz8hq3FIEG9AAAD
+2025-06-16 09:16:07,235 - WallpaperAnalyzer - INFO - Analysis completed
+2025-06-16 09:16:07,235 - WallpaperAnalyzer - INFO - Analysis completed
+2025-06-16 09:16:07,240 - WallpaperAnalyzer - INFO - Results cached
+2025-06-16 09:16:07,241 - WallpaperAnalyzer - INFO - Returning 327 images
+2025-06-16 09:16:07,241 - WallpaperAnalyzer - INFO - Sending response to frontend
+2025-06-16 09:17:08,138 - WallpaperAnalyzer - INFO - Client connected: vrilloZeoN2QjM4OAAAF
+2025-06-16 09:21:21,971 - WallpaperAnalyzer - INFO - Client connected: -m_eNKx03-lcbiT_AAAH
+2025-06-16 09:21:22,638 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-16 09:21:22,638 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-16 09:21:22,641 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-16 09:21:22,646 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-16 09:21:23,627 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-16 09:22:43,329 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-16 09:22:43,331 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.95, 'aesthetic_threshold': 0.91, 'recursive': True, 'skip_duplicates': True, 'skip_aesthetics': False, 'limit': 100}
+2025-06-16 09:22:43,338 - WallpaperAnalyzer - INFO - Starting new analysis
+2025-06-16 09:22:43,344 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-16 09:22:44,324 - WallpaperAnalyzer - INFO - Starting analysis of directory: /Users/dhairya/Downloads/walls
+2025-06-16 09:22:44,346 - WallpaperAnalyzer - INFO - Starting aesthetic analysis
+2025-06-16 09:22:54,055 - WallpaperAnalyzer - INFO - Starting image clustering
+2025-06-16 09:23:05,610 - WallpaperAnalyzer - INFO - Analysis completed
+2025-06-16 09:23:05,611 - WallpaperAnalyzer - INFO - Analysis completed
+2025-06-16 09:23:05,613 - WallpaperAnalyzer - INFO - Results cached
+2025-06-16 09:23:05,614 - WallpaperAnalyzer - INFO - Returning 100 images
+2025-06-16 09:23:05,614 - WallpaperAnalyzer - INFO - Sending response to frontend
+2025-06-16 09:23:19,207 - WallpaperAnalyzer - INFO - Client connected: nGKdWSh5Skqs_j9UAAAJ
+2025-06-16 09:23:20,020 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-16 09:23:20,020 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-16 09:23:20,021 - WallpaperAnalyzer - INFO - Starting new analysis
+2025-06-16 09:23:20,022 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-16 09:23:20,927 - WallpaperAnalyzer - INFO - Starting analysis of directory: /Users/dhairya/Downloads/walls
+2025-06-16 09:23:20,932 - WallpaperAnalyzer - INFO - Starting duplicate detection for 327 images
+2025-06-16 09:24:30,516 - WallpaperAnalyzer - INFO - Starting aesthetic analysis
+2025-06-16 09:25:05,602 - WallpaperAnalyzer - INFO - Starting image clustering
+2025-06-16 09:25:47,597 - WallpaperAnalyzer - INFO - Analysis completed
+2025-06-16 09:25:47,597 - WallpaperAnalyzer - INFO - Analysis completed
+2025-06-16 09:25:47,603 - WallpaperAnalyzer - INFO - Results cached
+2025-06-16 09:25:47,604 - WallpaperAnalyzer - INFO - Returning 327 images
+2025-06-16 09:25:47,604 - WallpaperAnalyzer - INFO - Sending response to frontend
+2025-06-16 09:25:48,990 - WallpaperAnalyzer - INFO - Client connected: uW9reYXw0w9LgQBPAAAL
+2025-06-16 09:26:23,411 - WallpaperAnalyzer - INFO - Client connected: MeKbag34YoXju6g0AAAN
+2025-06-16 09:29:17,578 - WallpaperAnalyzer - INFO - Client connected: 9vO1MZJ0cTCS6j46AAAB
+2025-06-16 09:30:00,499 - WallpaperAnalyzer - INFO - Client connected: BKEYEy-7kYZNdUBtAAAB
+2025-06-16 09:30:35,367 - WallpaperAnalyzer - INFO - Client connected: DfntzuYIZZLp9fcfAAAB
+2025-06-16 09:31:09,195 - WallpaperAnalyzer - INFO - Client connected: oWxeEN44PDD0yEQgAAAB
+2025-06-16 09:31:10,260 - WallpaperAnalyzer - INFO - Client connected: fPHjLTPtOGHjHa74AAAD
+2025-06-17 11:20:38,913 - WallpaperAnalyzer - INFO - Client connected: jrLoTF_niukmVxOiAAAB
+2025-06-17 11:20:40,293 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 11:20:40,294 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 11:20:40,296 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 11:20:40,296 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 11:20:41,247 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 11:20:46,843 - WallpaperAnalyzer - INFO - Client connected: LbFUuefoRw5aN-5uAAAD
+2025-06-17 11:26:09,498 - WallpaperAnalyzer - INFO - Client connected: s-qQzYD7rHITY7qmAAAF
+2025-06-17 12:27:44,492 - WallpaperAnalyzer - INFO - Client connected: VI0Y8kWkxYUZeiswAAAH
+2025-06-17 12:31:53,189 - WallpaperAnalyzer - INFO - Client connected: zfFiyXAduIxdr9ryAAAJ
+2025-06-17 12:37:29,692 - WallpaperAnalyzer - INFO - Client connected: vScACBqilhT8J-R9AAAB
+2025-06-17 12:37:35,853 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:37:35,853 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:37:35,856 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:37:35,857 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:37:36,788 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 12:38:10,404 - WallpaperAnalyzer - INFO - Client connected: 8zvLrLrGUiFb6gykAAAD
+2025-06-17 12:38:14,457 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:38:14,457 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:38:14,460 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:38:14,463 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:38:15,533 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 12:40:57,776 - WallpaperAnalyzer - INFO - Client connected: iIh1HV3St57KsHJ0AAAB
+2025-06-17 12:40:59,647 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:40:59,648 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:40:59,650 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:40:59,650 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:41:00,703 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 12:41:57,422 - WallpaperAnalyzer - INFO - Client connected: fVwQH58HpfoGILLPAAAB
+2025-06-17 12:41:58,263 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:41:58,263 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:41:58,265 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:41:58,266 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:41:59,246 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 12:43:03,235 - WallpaperAnalyzer - INFO - Client connected: PiB8djOPF40w_ASPAAAB
+2025-06-17 12:43:04,664 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:43:04,665 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:43:04,667 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:43:04,668 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:43:05,558 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 12:44:08,912 - WallpaperAnalyzer - INFO - Client connected: 3YlmO2MivVKRRuWTAAAB
+2025-06-17 12:44:10,331 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:44:10,331 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:44:10,333 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:44:10,334 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:44:11,278 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 12:44:42,030 - WallpaperAnalyzer - INFO - Client connected: 47PsENcXXKeRakBHAAAB
+2025-06-17 12:44:57,395 - WallpaperAnalyzer - INFO - Client connected: 6fnLS3QhBrZVw9WxAAAB
+2025-06-17 12:44:58,258 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:44:58,259 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:44:58,261 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:44:58,261 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:44:59,203 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 12:45:20,122 - WallpaperAnalyzer - INFO - Client connected: V_r1cdhME0lXyinDAAAB
+2025-06-17 12:45:20,301 - WallpaperAnalyzer - INFO - Client connected: MRdpe-U87iMTeftEAAAD
+2025-06-17 12:45:23,283 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:45:23,283 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:45:23,286 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:45:23,287 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:45:24,179 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 12:51:14,787 - WallpaperAnalyzer - INFO - Client connected: 9N54OcqUXGNpGFjNAAAB
+2025-06-17 12:51:16,941 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:51:16,941 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:51:16,944 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:51:16,944 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:51:17,807 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 12:52:48,905 - WallpaperAnalyzer - INFO - Client connected: 9YK6lJhHJ6PmfW3KAAAB
+2025-06-17 12:52:49,012 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:52:49,012 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:52:49,014 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:52:49,015 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:52:49,899 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 12:55:04,654 - WallpaperAnalyzer - INFO - Client connected: XebGTRx_tp6wdaKnAAAB
+2025-06-17 12:55:05,325 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:55:05,325 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:55:05,327 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:55:05,328 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:55:06,261 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 12:58:14,979 - WallpaperAnalyzer - INFO - Client connected: 2RYxbN_fcDYzsQ8xAAAD
+2025-06-17 12:58:16,631 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 12:58:16,631 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 12:58:16,640 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 12:58:16,643 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 12:58:17,698 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:00:32,102 - WallpaperAnalyzer - INFO - Client connected: UwOlLq9Vz5etC1PFAAAB
+2025-06-17 13:00:34,919 - WallpaperAnalyzer - INFO - Client connected: es9pELlKWESj98qEAAAD
+2025-06-17 13:00:36,315 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:00:36,315 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:00:36,317 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:00:36,317 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:00:37,268 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:01:40,066 - WallpaperAnalyzer - INFO - Client connected: Ctds0Y2IxiZZRK56AAAB
+2025-06-17 13:05:09,507 - WallpaperAnalyzer - INFO - Client connected: opNSswTE2i6q-oOuAAAB
+2025-06-17 13:07:19,570 - WallpaperAnalyzer - INFO - Client connected: spj3CoPLOsweJZpWAAAB
+2025-06-17 13:07:42,666 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:07:42,666 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:07:42,669 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:07:42,669 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:07:43,586 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:09:40,028 - WallpaperAnalyzer - INFO - Client connected: 4uXmMHJwdhcKMUyhAAAB
+2025-06-17 13:09:41,269 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:09:41,269 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:09:41,271 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:09:41,271 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:09:42,268 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:10:57,743 - WallpaperAnalyzer - INFO - Client connected: bef486FGGp5TZcuXAAAB
+2025-06-17 13:10:58,762 - WallpaperAnalyzer - INFO - Client connected: 3fQczDa-PJKbqvYPAAAD
+2025-06-17 13:10:59,900 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:10:59,900 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:10:59,903 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:10:59,903 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:11:00,783 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:13:29,786 - WallpaperAnalyzer - INFO - Client connected: iu4SCDCekLKb2CrFAAAB
+2025-06-17 13:13:30,715 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:13:30,715 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:13:30,717 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:13:30,718 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:13:31,563 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:16:35,419 - WallpaperAnalyzer - INFO - Client connected: 7c_sQS94_N3i06ONAAAB
+2025-06-17 13:16:48,581 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:16:48,582 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:16:48,584 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:16:48,585 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:16:49,468 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:17:48,227 - WallpaperAnalyzer - INFO - Client connected: JR4ImwWIaEvUnb5WAAAB
+2025-06-17 13:17:49,796 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:17:49,796 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:17:49,798 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:17:49,799 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:17:50,673 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:21:45,975 - WallpaperAnalyzer - INFO - Client connected: Gune3f8Obbkl45-7AAAB
+2025-06-17 13:21:47,629 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:21:47,630 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:21:47,632 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:21:47,632 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:21:48,549 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:22:27,243 - WallpaperAnalyzer - INFO - Client connected: FofXbvzgFb63qIl2AAAB
+2025-06-17 13:22:27,725 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:22:27,726 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:22:27,728 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:22:27,729 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:22:28,738 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:24:29,062 - WallpaperAnalyzer - INFO - Client connected: cah53wx4PMYFzTWtAAAB
+2025-06-17 13:24:29,776 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:24:29,776 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:24:29,779 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:24:29,780 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:24:30,807 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:25:00,429 - WallpaperAnalyzer - INFO - Client connected: 8jw9RpWwhim7y1oEAAAB
+2025-06-17 13:25:04,729 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:25:04,729 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:25:04,732 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:25:04,732 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:25:05,688 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:26:18,204 - WallpaperAnalyzer - INFO - Client connected: wW2u33WvchI7v0z3AAAB
+2025-06-17 13:26:20,649 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:26:20,649 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:26:20,651 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:26:20,651 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:26:21,632 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:27:13,215 - WallpaperAnalyzer - INFO - Client connected: np4Ywqp38FS0zJU0AAAB
+2025-06-17 13:27:13,843 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:27:13,843 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:27:13,845 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:27:13,846 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:27:14,721 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:27:41,597 - WallpaperAnalyzer - INFO - Client connected: iNdE9t0VWKbSqOP0AAAB
+2025-06-17 13:27:49,529 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:27:49,529 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:27:49,532 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:27:49,533 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:27:50,432 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:30:53,200 - WallpaperAnalyzer - INFO - Client connected: zHtl7RUHr8qKMztvAAAD
+2025-06-17 13:30:54,209 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:30:54,209 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:30:54,215 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:30:54,218 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:30:55,231 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:36:10,384 - WallpaperAnalyzer - INFO - Client connected: -3JrmZAZuo7GR5s4AAAB
+2025-06-17 13:36:23,397 - WallpaperAnalyzer - INFO - Client connected: nrMbkh3h3fLXcOqjAAAD
+2025-06-17 13:36:25,525 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:36:25,526 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:36:25,528 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:36:25,529 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:36:26,398 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:36:43,164 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:36:43,165 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:36:43,168 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:36:43,169 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:36:44,102 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 13:37:00,326 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 13:37:00,327 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 13:37:00,329 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 13:37:00,330 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 13:37:01,285 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 21:55:26,988 - WallpaperAnalyzer - INFO - Client connected: ja7N48K5l4xEFjswAAAB
+2025-06-17 21:55:33,170 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 21:55:33,171 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-06-17 21:55:33,179 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 21:55:33,185 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 21:55:34,172 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-06-17 21:55:58,122 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 21:55:58,124 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.44, 'aesthetic_threshold': 0.89, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 100}
+2025-06-17 21:55:58,130 - WallpaperAnalyzer - INFO - Starting new analysis
+2025-06-17 21:55:58,140 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 21:55:59,184 - WallpaperAnalyzer - INFO - Starting analysis of directory: /Users/dhairya/Downloads/walls
+2025-06-17 21:55:59,201 - WallpaperAnalyzer - INFO - Starting duplicate detection for 100 images
+2025-06-17 21:56:20,462 - WallpaperAnalyzer - INFO - Starting aesthetic analysis
+2025-06-17 21:56:30,041 - WallpaperAnalyzer - INFO - Starting image clustering
+2025-06-17 21:56:42,094 - WallpaperAnalyzer - INFO - Analysis completed
+2025-06-17 21:56:42,094 - WallpaperAnalyzer - INFO - Analysis completed
+2025-06-17 21:56:42,100 - WallpaperAnalyzer - INFO - Results cached
+2025-06-17 21:56:42,100 - WallpaperAnalyzer - INFO - Returning 100 images
+2025-06-17 21:56:42,100 - WallpaperAnalyzer - INFO - Sending response to frontend
+2025-06-17 21:56:57,270 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-06-17 21:56:57,272 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.44, 'aesthetic_threshold': 0.89, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 100}
+2025-06-17 21:56:57,274 - WallpaperAnalyzer - INFO - Using cached results
+2025-06-17 21:56:57,275 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-06-17 21:56:58,191 - WallpaperAnalyzer - INFO - Returning 100 images from cache
+2025-07-01 09:17:54,835 - WallpaperAnalyzer - INFO - Client connected: 7ODTmTzdxzh7wGNfAAAB
+2025-07-01 09:18:01,826 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-07-01 09:18:01,826 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-07-01 09:18:01,827 - WallpaperAnalyzer - INFO - Starting new analysis
+2025-07-01 09:18:01,827 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-07-01 09:18:02,717 - WallpaperAnalyzer - INFO - Starting analysis of directory: /Users/dhairya/Downloads/walls
+2025-07-01 09:18:02,736 - WallpaperAnalyzer - INFO - Starting duplicate detection for 327 images
+2025-07-01 09:19:17,255 - WallpaperAnalyzer - INFO - Starting aesthetic analysis
+2025-07-01 09:19:51,116 - WallpaperAnalyzer - INFO - Starting image clustering
+2025-07-01 09:20:32,859 - WallpaperAnalyzer - INFO - Client connected: b4zLv5hBTdgMsFSUAAAD
+2025-07-01 09:20:33,133 - WallpaperAnalyzer - INFO - Analysis completed
+2025-07-01 09:20:33,133 - WallpaperAnalyzer - INFO - Analysis completed
+2025-07-01 09:20:33,138 - WallpaperAnalyzer - INFO - Results cached
+2025-07-01 09:20:33,139 - WallpaperAnalyzer - INFO - Returning 327 images
+2025-07-01 09:20:33,139 - WallpaperAnalyzer - INFO - Sending response to frontend
+2025-07-01 12:22:20,663 - WallpaperAnalyzer - INFO - Client connected: U4An4lZe_GaO-AzDAAAB
+2025-07-01 12:22:27,294 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-07-01 12:22:27,294 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-07-01 12:22:27,297 - WallpaperAnalyzer - INFO - Using cached results
+2025-07-01 12:22:27,297 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-07-01 12:22:28,203 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-07-01 12:23:24,656 - WallpaperAnalyzer - INFO - Client connected: J_Is2gLg8gnx75dKAAAD
+2025-07-01 12:26:30,893 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-07-01 12:26:30,893 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-07-01 12:26:30,896 - WallpaperAnalyzer - INFO - Using cached results
+2025-07-01 12:26:30,897 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-07-01 12:26:31,845 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-07-01 12:27:37,970 - WallpaperAnalyzer - INFO - Client connected: sYLO3aMYI0QA-8H-AAAB
+2025-07-01 12:27:58,665 - WallpaperAnalyzer - INFO - Client connected: BeavdcRJ_WcghEDQAAAD
+2025-07-01 12:28:01,241 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-07-01 12:28:01,241 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-07-01 12:28:01,243 - WallpaperAnalyzer - INFO - Using cached results
+2025-07-01 12:28:01,245 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-07-01 12:28:02,159 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-07-01 12:28:48,760 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-07-01 12:28:48,761 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.75, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 100}
+2025-07-01 12:28:48,762 - WallpaperAnalyzer - INFO - Starting new analysis
+2025-07-01 12:28:48,763 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-07-01 12:28:49,726 - WallpaperAnalyzer - INFO - Starting analysis of directory: /Users/dhairya/Downloads/walls
+2025-07-01 12:28:49,745 - WallpaperAnalyzer - INFO - Starting duplicate detection for 100 images
+2025-07-01 12:29:10,281 - WallpaperAnalyzer - INFO - Starting aesthetic analysis
+2025-07-01 12:29:19,706 - WallpaperAnalyzer - INFO - Starting image clustering
+2025-07-01 12:29:31,450 - WallpaperAnalyzer - INFO - Analysis completed
+2025-07-01 12:29:31,450 - WallpaperAnalyzer - INFO - Analysis completed
+2025-07-01 12:29:31,454 - WallpaperAnalyzer - INFO - Results cached
+2025-07-01 12:29:31,454 - WallpaperAnalyzer - INFO - Returning 100 images
+2025-07-01 12:29:31,454 - WallpaperAnalyzer - INFO - Sending response to frontend
+2025-07-01 12:29:39,257 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-07-01 12:29:39,257 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.75, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 100}
+2025-07-01 12:29:39,259 - WallpaperAnalyzer - INFO - Using cached results
+2025-07-01 12:29:39,259 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-07-01 12:29:40,115 - WallpaperAnalyzer - INFO - Returning 100 images from cache
+2025-07-01 12:31:03,576 - WallpaperAnalyzer - INFO - Client connected: upfBbQP5-P0FlDdoAAAF
+2025-07-01 12:46:11,229 - WallpaperAnalyzer - INFO - Client connected: wLzuJYwTgEdMr0KnAAAB
+2025-07-01 12:46:37,376 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-07-01 12:46:37,377 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-07-01 12:46:37,378 - WallpaperAnalyzer - INFO - Starting new analysis
+2025-07-01 12:46:37,378 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-07-01 12:46:38,269 - WallpaperAnalyzer - INFO - Starting analysis of directory: /Users/dhairya/Downloads/walls
+2025-07-01 12:46:38,288 - WallpaperAnalyzer - INFO - Starting duplicate detection for 327 images
+2025-07-01 12:47:46,889 - WallpaperAnalyzer - INFO - Starting aesthetic analysis
+2025-07-01 12:48:19,683 - WallpaperAnalyzer - INFO - Starting image clustering
+2025-07-01 12:48:58,642 - WallpaperAnalyzer - INFO - Client connected: 0CUwElUtSOpL4n63AAAD
+2025-07-01 12:48:58,935 - WallpaperAnalyzer - INFO - Analysis completed
+2025-07-01 12:48:58,935 - WallpaperAnalyzer - INFO - Analysis completed
+2025-07-01 12:48:58,940 - WallpaperAnalyzer - INFO - Results cached
+2025-07-01 12:48:58,941 - WallpaperAnalyzer - INFO - Returning 327 images
+2025-07-01 12:48:58,941 - WallpaperAnalyzer - INFO - Sending response to frontend
+2025-07-01 13:00:11,203 - WallpaperAnalyzer - INFO - Client connected: SrtDlBUNnVB8L8VYAAAF
+2025-07-01 13:05:20,839 - WallpaperAnalyzer - INFO - Client connected: BQOgl8qPfpsFJftJAAAH
+2025-07-01 13:07:41,703 - WallpaperAnalyzer - INFO - Client connected: spAuB7hWch8KRNwOAAAJ
+2025-07-01 13:07:42,810 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-07-01 13:07:42,810 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-07-01 13:07:42,813 - WallpaperAnalyzer - INFO - Using cached results
+2025-07-01 13:07:42,816 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-07-01 13:07:43,731 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-07-01 13:20:31,492 - WallpaperAnalyzer - INFO - Client connected: 7vdwqkXRGBTQZ8TYAAAL
+2025-07-01 13:20:32,443 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-07-01 13:20:32,443 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-07-01 13:20:32,455 - WallpaperAnalyzer - INFO - Using cached results
+2025-07-01 13:20:32,461 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-07-01 13:20:33,417 - WallpaperAnalyzer - INFO - Returning 327 images from cache
+2025-07-01 13:35:51,278 - WallpaperAnalyzer - INFO - Client connected: misXR1KbbC9GuGAzAAAN
+2025-07-01 13:36:04,006 - WallpaperAnalyzer - INFO - Client connected: dD2kG-8McWdrnNAcAAAP
+2025-07-01 13:38:05,545 - WallpaperAnalyzer - INFO - Client connected: MeOK4lqnU1RBKFIDAAAR
+2025-07-01 18:49:04,493 - WallpaperAnalyzer - INFO - Client connected: wBgaR0UV78TB_HGYAAAB
+2025-07-01 18:49:05,792 - WallpaperAnalyzer - INFO - Starting analysis for directory: /Users/dhairya/Downloads/walls
+2025-07-01 18:49:05,792 - WallpaperAnalyzer - INFO - Analysis parameters: {'similarity_threshold': 0.85, 'aesthetic_threshold': 0.8, 'recursive': True, 'skip_duplicates': False, 'skip_aesthetics': False, 'limit': 0}
+2025-07-01 18:49:05,794 - WallpaperAnalyzer - INFO - Using cached results
+2025-07-01 18:49:05,795 - WallpaperAnalyzer - INFO - Initializing models on device: mps
+2025-07-01 18:49:06,695 - WallpaperAnalyzer - INFO - Returning 327 images from cache

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="nextprime">
+<html lang="en" data-theme="valentine">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,12 +13,38 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
-        plugins: [require("daisyui")],
         daisyui: {
           themes: [
+            "light",
+            "dark",
+            "cupcake",
+            "bumblebee",
+            "emerald",
+            "corporate",
+            "synthwave",
+            "retro",
+            "cyberpunk",
+            "valentine",
+            "halloween",
+            "garden",
+            "forest",
+            "aqua",
+            "pastel",
+            "fantasy",
+            "wireframe",
+            "black",
+            "luxury",
+            "dracula",
+            "cmyk",
+            "autumn",
+            "business",
+            "acid",
+            "lemonade",
+            "night",
+            "coffee",
+            "winter",
             {
               nextprime: {
-                "color-scheme": "dark",
                 primary: "oklch(0% 0 0)",
                 "primary-content": "oklch(100% 0 0)",
                 secondary: "oklch(55% 0.016 285.938)",
@@ -42,26 +68,23 @@
                 "--rounded-box": "1rem",
                 "--rounded-btn": "0.5rem",
                 "--rounded-badge": "0.5rem",
-                "--radius-selector": "0.5rem",
-                "--radius-field": "2rem",
                 "--animation-btn": "0.25s",
-                "--animation-input": "0.25s",
+                "--animation-input": "0.2s",
                 "--btn-focus-scale": "0.98",
                 "--border-btn": "1px",
                 "--tab-border": "1px",
                 "--tab-radius": "0.5rem",
-                "--size-selector": "0.21875rem",
-                "--size-field": "0.25rem",
-                "--border": "1px",
-                "--depth": "1",
-                "--noise": "1",
               },
             },
           ],
         },
       };
     </script>
-
+    <style>
+      .masonry-item:hover {
+        transform: translateY(-10px);
+      }
+    </style>
     <!-- Bootstrap Icons -->
     <link
       rel="stylesheet"
@@ -90,6 +113,38 @@
           previewImage: null,
           socket: null,
           clusters: [],
+          currentTheme: "valentine",
+          themes: [
+            "light",
+            "dark",
+            "cupcake",
+            "bumblebee",
+            "emerald",
+            "corporate",
+            "synthwave",
+            "retro",
+            "cyberpunk",
+            "valentine",
+            "halloween",
+            "garden",
+            "forest",
+            "aqua",
+            "pastel",
+            "fantasy",
+            "wireframe",
+            "black",
+            "luxury",
+            "dracula",
+            "cmyk",
+            "autumn",
+            "business",
+            "acid",
+            "lemonade",
+            "night",
+            "coffee",
+            "winter",
+            "nextprime",
+          ],
           settings: {
             directory: "/Users/dhairya/Downloads/walls",
             similarity_threshold: 0.85,
@@ -274,6 +329,12 @@
               item.style.setProperty("--row-span", rowSpan);
             }
           },
+
+          changeTheme(theme) {
+            this.currentTheme = theme;
+            document.documentElement.setAttribute("data-theme", theme);
+            this.showToast(`Theme changed to ${theme}`, "success");
+          },
         }));
       });
 
@@ -324,7 +385,13 @@
         height: auto;
         display: block;
         border-radius: 0.5rem;
-        transition: all 0.3s ease;
+        transition: all 0.3s ease-in-out;
+      }
+      .masonry-item img:hover {
+        transform: scale(1.07);
+        box-shadow: 0 4px 8px rgba(255, 63, 84, 0.3),
+          0 0 12px rgba(59, 255, 230, 0.2), 0 0 2px rgba(255, 93, 115, 0.6),
+          0 6px 20px rgba(0, 0, 0, 0.6);
       }
       .aesthetic-score {
         position: absolute;
@@ -347,11 +414,11 @@
         bottom: 0;
         left: 0;
         right: 0;
-        background: rgba(0, 0, 0, 0.8);
+        background: rgba(0, 0, 0, 0.075);
         color: white;
         padding: 1rem;
         transform: translateY(100%);
-        transition: transform 0.3s ease;
+        transition: transform 0.5s ease;
       }
       .preview-modal:hover .preview-info {
         transform: translateY(0);
@@ -365,6 +432,26 @@
         <a class="btn btn-ghost text-xl">Wallyzer</a>
       </div>
       <div class="flex-none gap-2">
+        <div class="dropdown dropdown-end">
+          <div tabindex="0" role="button" class="btn btn-ghost">
+            <i class="bi bi-palette"></i>
+            Theme
+          </div>
+          <ul
+            tabindex="0"
+            class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 max-h-96 overflow-y-auto"
+          >
+            <template x-for="theme in themes" :key="theme">
+              <li>
+                <button
+                  @click="changeTheme(theme)"
+                  :class="{ 'active': currentTheme === theme }"
+                  x-text="theme"
+                ></button>
+              </li>
+            </template>
+          </ul>
+        </div>
         <button class="btn btn-square btn-ghost" @click="showSettings = true">
           <i class="bi bi-gear"></i>
         </button>
@@ -378,13 +465,13 @@
         <div class="card-body">
           <div class="flex flex-wrap gap-4 items-center">
             <div class="form-control flex-1">
-              <div class="input-group">
-                <span class="flex items-center px-3 bg-base-200">
-                  <i class="bi bi-folder"></i>
-                </span>
+              <div class="relative w-full">
+                <i
+                  class="bi bi-folder absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                ></i>
                 <input
                   type="text"
-                  class="input input-bordered w-full"
+                  class="input input-bordered w-full pl-10"
                   x-model="settings.directory"
                   placeholder="Enter directory path..."
                   required
@@ -574,37 +661,34 @@
             loading="lazy"
             class="w-full h-auto"
           />
-          <div class="preview-info">
-            <h3
-              class="text-lg font-bold"
-              x-text="previewImage ? previewImage.path.split('/').pop() : ''"
-            ></h3>
-            <div class="flex gap-2 mt-2">
-              <div
-                class="badge badge-primary"
-                x-text="'Cluster ' + (previewImage ? previewImage.cluster : '')"
-              ></div>
-              <div
-                class="badge badge-warning"
-                x-show="previewImage && previewImage.is_duplicate"
-              >
-                Duplicate
-              </div>
-              <div
-                class="badge badge-error"
-                x-show="previewImage && previewImage.is_low_aesthetic"
-              >
-                Low Score
-              </div>
+          <div class="absolute top-4 right-4 flex gap-2">
+            <div
+              class="badge badge-primary"
+              x-text="'Cluster ' + (previewImage ? previewImage.cluster : '')"
+            ></div>
+            <div
+              class="badge badge-warning"
+              x-show="previewImage && previewImage.is_duplicate"
+            >
+              Duplicate
             </div>
             <div
-              class="mt-2"
-              x-text="'Aesthetic Score: ' + formatAestheticScore(previewImage ? previewImage.aesthetic_score : null)"
+              class="badge badge-error"
+              x-show="previewImage && previewImage.is_low_aesthetic"
+            >
+              Low Score
+            </div>
+            <div
+              class="badge badge-info"
+              x-text="'Score: ' + formatAestheticScore(previewImage ? previewImage.aesthetic_score : null)"
             ></div>
           </div>
-        </div>
-        <div class="modal-action">
-          <button class="btn" @click="showPreview = false">Close</button>
+          <button
+            class="btn btn-circle btn absolute top-4 left-4"
+            @click="showPreview = false"
+          >
+            <i class="bi bi-x-lg"></i>
+          </button>
         </div>
       </div>
       <form method="dialog" class="modal-backdrop">
