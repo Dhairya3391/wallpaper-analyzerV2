@@ -1,3 +1,7 @@
+# Wallpaper Analyzer V2
+# Concurrency: Uses eventlet (green threads) for async I/O and Flask-SocketIO, and ThreadPoolExecutor for CPU-bound image processing. This hybrid model is robust for I/O and parallel CPU workloads.
+# Configuration: All magic numbers and tunables are in the Config class below.
+
 import eventlet
 eventlet.monkey_patch()
 
@@ -15,13 +19,12 @@ from flask_cors import CORS
 import multiprocessing
 from functools import lru_cache
 from collections import defaultdict
-import time
 import sqlite3
 import json
 from datetime import datetime
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
-import torch.nn.functional as F
+import flask
 
 # Configuration
 class Config:
@@ -51,9 +54,12 @@ class Config:
     
     # Database settings
     DB_PATH = 'analysis_cache.db'
+    # Magic numbers moved here
+    MAX_HASH_CACHE = 2000
+    DUPLICATE_FEATURE_LIMIT = 1000
 
 # Database initialization
-def init_db():
+def init_db() -> None:
     conn = sqlite3.connect(Config.DB_PATH)
     c = conn.cursor()
     c.execute('''
@@ -81,7 +87,7 @@ def init_db():
 # Initialize database on startup
 init_db()
 
-def get_cached_results(directory, params):
+def get_cached_results(directory: str, params: dict) -> dict | None:
     """Get cached results if they exist and match the parameters"""
     conn = sqlite3.connect(Config.DB_PATH)
     c = conn.cursor()
@@ -128,7 +134,7 @@ def get_cached_results(directory, params):
     
     return None
 
-def cache_results(directory, params, results):
+def cache_results(directory: str, params: dict, results: dict) -> None:
     """Cache analysis results in the database"""
     conn = sqlite3.connect(Config.DB_PATH)
     c = conn.cursor()
@@ -195,7 +201,7 @@ analysis_results = {}
 active_connections = set()
 
 class ImageProcessor:
-    def __init__(self):
+    def __init__(self) -> None:
         self.device = Config.DEVICE
         self.transform = transforms.Compose([
             transforms.Resize((224, 224), antialias=True),
@@ -204,7 +210,7 @@ class ImageProcessor:
         ])
         self._initialize_models()
         
-    def _initialize_models(self):
+    def _initialize_models(self) -> None:
         """Initialize neural network models"""
         logger.info(f"Initializing models on device: {self.device}")
         
@@ -220,8 +226,8 @@ class ImageProcessor:
         self.aesthetic_model = self.aesthetic_model.to(self.device)
         self.aesthetic_model.eval()
 
-    @lru_cache(maxsize=2000)
-    def calculate_hash(self, image_path):
+    @lru_cache(maxsize=Config.MAX_HASH_CACHE)
+    def calculate_hash(self, image_path: str) -> bytes | None:
         """Calculate perceptual hash of an image"""
         try:
             image = Image.open(image_path).convert('RGB')
@@ -234,7 +240,7 @@ class ImageProcessor:
             logger.error(f"Error calculating hash for {image_path}: {e}")
             return None
 
-    def process_batch(self, image_paths, process_type='features', progress_callback=None):
+    def process_batch(self, image_paths: list[str], process_type: str = 'features', progress_callback: callable = None) -> dict:
         results = {}
         batch_size = Config.BATCH_SIZE
         total = len(image_paths)
@@ -293,10 +299,10 @@ class ImageProcessor:
         return results
 
 class DuplicateDetector:
-    def __init__(self, image_processor):
+    def __init__(self, image_processor: ImageProcessor) -> None:
         self.image_processor = image_processor
 
-    def find_duplicates(self, image_paths, threshold=Config.DEFAULT_SIMILARITY_THRESHOLD):
+    def find_duplicates(self, image_paths: list[str], threshold: float = Config.DEFAULT_SIMILARITY_THRESHOLD) -> list[list[str]]:
         """Find duplicate images using perceptual hashing and feature comparison"""
         if not image_paths:
             return []
@@ -317,7 +323,7 @@ class DuplicateDetector:
         potential_duplicates = [paths for paths in image_hashes.values() if len(paths) > 1]
         
         # Phase 2: Feature-based comparison for remaining images
-        if len(image_paths) <= 1000:
+        if len(image_paths) <= Config.DUPLICATE_FEATURE_LIMIT:
             features = {}
             for i in range(0, len(image_paths), Config.BATCH_SIZE):
                 batch = image_paths[i:i + Config.BATCH_SIZE]
@@ -353,7 +359,7 @@ class DuplicateDetector:
         return potential_duplicates
 
 class ImageClusterer:
-    def __init__(self, image_processor):
+    def __init__(self, image_processor: ImageProcessor) -> None:
         self.image_processor = image_processor
         self.device = Config.DEVICE
         self.transform = transforms.Compose([
@@ -363,7 +369,7 @@ class ImageClusterer:
         ])
         self._initialize_model()
         
-    def _initialize_model(self):
+    def _initialize_model(self) -> None:
         """Initialize ResNet50 model for feature extraction"""
         self.model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
         # Remove the final classification layer
@@ -371,7 +377,7 @@ class ImageClusterer:
         self.model = self.model.to(self.device)
         self.model.eval()
     
-    def extract_features(self, image_paths):
+    def extract_features(self, image_paths: list[str]) -> tuple[np.ndarray, list[str]]:
         """Extract features from a batch of images"""
         features = []
         valid_paths = []
@@ -391,7 +397,7 @@ class ImageClusterer:
         
         return np.array(features), valid_paths
     
-    def find_optimal_clusters(self, features):
+    def find_optimal_clusters(self, features: np.ndarray) -> int:
         """Find optimal number of clusters using silhouette analysis"""
         best_score = -1
         best_n_clusters = Config.MIN_CLUSTERS
@@ -408,7 +414,7 @@ class ImageClusterer:
         
         return best_n_clusters
     
-    def cluster_images(self, image_paths):
+    def cluster_images(self, image_paths: list[str]) -> tuple[dict, dict]:
         """Cluster images based on their features"""
         features, valid_paths = self.extract_features(image_paths)
         
@@ -440,14 +446,14 @@ class ImageClusterer:
         return clusters, {}
 
 class WallpaperAnalyzer:
-    def __init__(self):
+    def __init__(self) -> None:
         self.image_processor = ImageProcessor()
         self.duplicate_detector = DuplicateDetector(self.image_processor)
         self.image_clusterer = ImageClusterer(self.image_processor)
 
-    def analyze_directory(self, directory, similarity_threshold=Config.DEFAULT_SIMILARITY_THRESHOLD,
-                         aesthetic_threshold=Config.DEFAULT_AESTHETIC_THRESHOLD, recursive=False,
-                         skip_duplicates=False, skip_aesthetics=False, limit=0):
+    def analyze_directory(self, directory: str, similarity_threshold: float = Config.DEFAULT_SIMILARITY_THRESHOLD,
+                         aesthetic_threshold: float = Config.DEFAULT_AESTHETIC_THRESHOLD, recursive: bool = False,
+                         skip_duplicates: bool = False, skip_aesthetics: bool = False, limit: int = 0) -> dict:
         import time
         t0 = time.time()
         total_steps = 5
@@ -543,7 +549,7 @@ class WallpaperAnalyzer:
             'low_aesthetic': [],
         }
 
-    def _get_image_paths(self, directory, recursive=False):
+    def _get_image_paths(self, directory: str, recursive: bool = False) -> list[str]:
         """Get all image paths in a directory"""
         image_paths = []
         
@@ -559,7 +565,7 @@ class WallpaperAnalyzer:
         
         return image_paths
 
-    def format_results_for_frontend(self, results):
+    def format_results_for_frontend(self, results: dict) -> dict:
         """Format analysis results for frontend display"""
         try:
             # Initialize sets for tracking
@@ -632,11 +638,11 @@ class WallpaperAnalyzer:
 
 # Flask routes
 @app.route('/')
-def index():
+def index() -> 'flask.Response':
     return send_file('index.html')
 
 @app.route('/api/analyze', methods=['POST'])
-def analyze():
+def analyze() -> 'flask.Response':
     try:
         data = request.get_json()
         directory = data.get('directory')
@@ -700,7 +706,7 @@ def analyze():
         }), 500
 
 @app.route('/api/image')
-def serve_image():
+def serve_image() -> 'flask.Response':
     try:
         image_path = request.args.get('path')
         if not image_path or not os.path.exists(image_path):
@@ -712,7 +718,7 @@ def serve_image():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/results/<path:directory>')
-def get_results(directory):
+def get_results(directory: str) -> 'flask.Response':
     try:
         if directory in analysis_results:
             return jsonify(analysis_results[directory])
@@ -723,22 +729,22 @@ def get_results(directory):
 
 # Socket.IO event handlers
 @socketio.on('connect')
-def handle_connect():
+def handle_connect() -> None:
     logger.info(f"Client connected: {request.sid}")
     active_connections.add(request.sid)
     socketio.emit('connection_status', {'status': 'connected'})
 
 @socketio.on('disconnect')
-def handle_disconnect(client_id):
+def handle_disconnect(client_id: str) -> None:
     if request.sid in active_connections:
         active_connections.remove(request.sid)
 
 @socketio.on_error()
-def error_handler(e):
+def error_handler(e: Exception) -> None:
     logger.error(f"Socket.IO error: {str(e)}")
     socketio.emit('error', {'message': str(e)})
 
-def main():
+def main() -> None:
     """Main entry point for the application"""
     try:
         with app.app_context():
