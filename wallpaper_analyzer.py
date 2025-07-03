@@ -61,23 +61,41 @@ class Config:
 def init_db() -> None:
     conn = sqlite3.connect(Config.DB_PATH)
     c = conn.cursor()
+    # Per-image cache
     c.execute('''
-        CREATE TABLE IF NOT EXISTS analysis_results (
-            directory TEXT PRIMARY KEY,
-            similarity_threshold REAL,
-            aesthetic_threshold REAL,
-            recursive BOOLEAN,
-            skip_duplicates BOOLEAN,
-            skip_aesthetics BOOLEAN,
-            limit_count INTEGER,
-            total_images INTEGER,
-            processed_images INTEGER,
-            duplicates TEXT,
-            aesthetic_scores TEXT,
-            clusters TEXT,
-            cluster_features TEXT,
+        CREATE TABLE IF NOT EXISTS images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            directory TEXT,
+            path TEXT,
             last_modified TIMESTAMP,
-            last_analyzed TIMESTAMP
+            size INTEGER,
+            hash TEXT,
+            features BLOB,
+            aesthetic_score REAL,
+            analyzed_at TIMESTAMP,
+            other_metadata TEXT
+        )
+    ''')
+    # Per-analysis run
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS analysis_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            directory TEXT,
+            params TEXT,
+            run_time TIMESTAMP,
+            result_summary TEXT
+        )
+    ''')
+    # Map images to analysis runs, clusters, etc.
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS image_analysis_map (
+            run_id INTEGER,
+            image_id INTEGER,
+            cluster_id INTEGER,
+            is_duplicate BOOLEAN,
+            is_low_aesthetic BOOLEAN,
+            FOREIGN KEY(run_id) REFERENCES analysis_runs(id),
+            FOREIGN KEY(image_id) REFERENCES images(id)
         )
     ''')
     conn.commit()
@@ -86,88 +104,26 @@ def init_db() -> None:
 # Initialize database on startup
 init_db()
 
-def get_cached_results(directory: str, params: dict) -> dict | None:
-    """Get cached results if they exist and match the parameters"""
-    conn = sqlite3.connect(Config.DB_PATH)
-    c = conn.cursor()
-    
-    c.execute('''
-        SELECT * FROM analysis_results 
-        WHERE directory = ? 
-        AND similarity_threshold = ?
-        AND aesthetic_threshold = ?
-        AND recursive = ?
-        AND skip_duplicates = ?
-        AND skip_aesthetics = ?
-        AND limit_count = ?
-    ''', (
-        directory,
-        params['similarity_threshold'],
-        params['aesthetic_threshold'],
-        params['recursive'],
-        params['skip_duplicates'],
-        params['skip_aesthetics'],
-        params['limit']
-    ))
-    
-    result = c.fetchone()
-    conn.close()
-    
-    if result:
-        # Check if directory contents have changed
-        last_modified = datetime.fromisoformat(result[13])
-        current_modified = datetime.fromtimestamp(os.path.getmtime(directory))
-        
-        if current_modified <= last_modified:
-            # Convert stored JSON strings back to Python objects
-            return {
-                'directory': result[0],
-                'total_images': result[7],
-                'processed_images': result[8],
-                'duplicates': json.loads(result[9]),
-                'aesthetic_scores': json.loads(result[10]),
-                'clusters': json.loads(result[11]),
-                'cluster_features': json.loads(result[12]),
-                'cached': True
-            }
-    
-    return None
+def get_image_cache_entry(conn, directory: str, path: str, last_modified: float, size: int):
+    with conn:
+        c = conn.cursor()
+        c.execute('''
+            SELECT id, features, aesthetic_score FROM images
+            WHERE directory = ? AND path = ? AND last_modified = ? AND size = ?
+        ''', (directory, path, last_modified, size))
+        return c.fetchone()
 
-def cache_results(directory: str, params: dict, results: dict) -> None:
-    """Cache analysis results in the database"""
-    conn = sqlite3.connect(Config.DB_PATH)
+def upsert_image_cache_entry(conn, directory: str, path: str, last_modified: float, size: int, features, aesthetic_score):
     c = conn.cursor()
-    
-    # Get directory's last modified time
-    last_modified = datetime.fromtimestamp(os.path.getmtime(directory))
-    
     c.execute('''
-        INSERT OR REPLACE INTO analysis_results 
-        (directory, similarity_threshold, aesthetic_threshold, recursive, 
-         skip_duplicates, skip_aesthetics, limit_count, total_images, 
-         processed_images, duplicates, aesthetic_scores, clusters, cluster_features,
-         last_modified, last_analyzed)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (
-        directory,
-        params['similarity_threshold'],
-        params['aesthetic_threshold'],
-        params['recursive'],
-        params['skip_duplicates'],
-        params['skip_aesthetics'],
-        params['limit'],
-        results['total_images'],
-        results['processed_images'],
-        json.dumps(results['duplicates']),
-        json.dumps(results['aesthetic_scores']),
-        json.dumps(results.get('clusters', {})),
-        json.dumps(results.get('cluster_features', {})),
-        last_modified.isoformat(),
-        datetime.now().isoformat()
-    ))
-    
+        INSERT INTO images (directory, path, last_modified, size, features, aesthetic_score, analyzed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(directory, path, last_modified, size) DO UPDATE SET
+            features=excluded.features,
+            aesthetic_score=excluded.aesthetic_score,
+            analyzed_at=excluded.analyzed_at
+    ''', (directory, path, last_modified, size, features, aesthetic_score, datetime.now().isoformat()))
     conn.commit()
-    conn.close()
 
 # Logging setup
 handlers = [logging.FileHandler('analyzed.log')]
@@ -453,6 +409,50 @@ class WallpaperAnalyzer:
         if limit and limit > 0:
             image_paths = image_paths[:limit]
         logger.info(f"Loaded {len(image_paths)} image paths.")
+        # Per-image cache check
+        conn = sqlite3.connect(Config.DB_PATH)
+        cached_features = {}
+        cached_scores = {}
+        to_process = []
+        for path in image_paths:
+            try:
+                stat = os.stat(path)
+                entry = get_image_cache_entry(conn, directory, path, stat.st_mtime, stat.st_size)
+                if entry and entry[1] is not None:
+                    # features is a BLOB, decode as needed
+                    cached_features[path] = np.frombuffer(entry[1], dtype=np.float32)
+                    if entry[2] is not None:
+                        cached_scores[path] = entry[2]
+                else:
+                    to_process.append((path, stat.st_mtime, stat.st_size))
+            except Exception as e:
+                logger.error(f"Error checking cache for {path}: {e}")
+                to_process.append((path, 0, 0))
+        # Only process new/changed images
+        features = {}
+        scores = {}
+        if to_process:
+            logger.info(f"Processing {len(to_process)} new/changed images...")
+            paths = [p[0] for p in to_process]
+            # Feature extraction
+            new_features = self.image_processor.process_batch(paths, process_type='features')
+            # Aesthetic scoring
+            new_scores = self.image_processor.process_batch(paths, process_type='aesthetic')
+            # Store in DB
+            for i, (path, mtime, size) in enumerate(to_process):
+                feat = new_features.get(path)
+                score = new_scores.get(path)
+                if feat is not None:
+                    features[path] = feat
+                if score is not None:
+                    scores[path] = score
+                upsert_image_cache_entry(conn, directory, path, mtime, size,
+                    np.array(feat, dtype=np.float32).tobytes() if feat is not None else None,
+                    float(score) if score is not None else None)
+        # Merge cached and new
+        features.update(cached_features)
+        scores.update(cached_scores)
+        conn.close()
         current_step += 1
         t1 = time.time()
         # 2. Feature extraction
@@ -512,6 +512,43 @@ class WallpaperAnalyzer:
         current_step += 1
         t5 = time.time()
         logger.info(f"Timing: image loading: {t1-t0:.2f}s, feature extraction: {t2-t1:.2f}s, duplicate detection: {t3-t2:.2f}s, clustering: {t4-t3:.2f}s, total: {t5-t0:.2f}s")
+        # After all analysis steps (duplicates, clusters, scores) are complete:
+        # Insert analysis run
+        result_summary = {
+            'duplicates': duplicates,
+            'clusters': clusters,
+            'aesthetic_scores': aesthetic_scores
+        }
+        run_id = insert_analysis_run(conn, directory, {
+            'similarity_threshold': similarity_threshold,
+            'aesthetic_threshold': aesthetic_threshold,
+            'recursive': recursive,
+            'skip_duplicates': skip_duplicates,
+            'skip_aesthetics': skip_aesthetics,
+            'limit': limit
+        }, result_summary)
+        # Map images to this run
+        for path in image_paths:
+            try:
+                stat = os.stat(path)
+                image_id = get_image_id(conn, directory, path, stat.st_mtime, stat.st_size)
+                if image_id is None:
+                    continue
+                # Find cluster_id
+                cluster_id = -1
+                for cid, cdata in clusters.items():
+                    if 'paths' in cdata and path in cdata['paths']:
+                        cluster_id = cid
+                        break
+                # Is duplicate?
+                is_dup = any(path in group for group in duplicates)
+                # Is low aesthetic?
+                is_low = False
+                if path in aesthetic_scores:
+                    is_low = aesthetic_scores[path] < aesthetic_threshold
+                insert_image_analysis_map(conn, run_id, image_id, cluster_id, is_dup, is_low)
+            except Exception as e:
+                logger.error(f"Error mapping image to analysis run: {e}")
         # Always return a results dictionary
         return {
             'directory': directory,
@@ -540,68 +577,41 @@ class WallpaperAnalyzer:
         
         return image_paths
 
-    def format_results_for_frontend(self, results: dict) -> dict:
-        """Format analysis results for frontend display"""
+    def format_results_for_frontend(self, directory: str, params: dict) -> dict:
+        """Format analysis results for frontend display using the new cache schema"""
         try:
-            # Initialize sets for tracking
-            all_paths = set()
-            duplicate_paths = set()
-            low_aesthetic_paths = set()
-            
-            # Process clusters
-            clusters = []
-            if results.get('clusters'):
-                for cluster_id, cluster_data in results['clusters'].items():
-                    if isinstance(cluster_data, dict) and 'paths' in cluster_data:
-                        cluster_paths = set(cluster_data['paths'])
-                        all_paths.update(cluster_paths)
-                        clusters.append({
-                            'id': cluster_id,
-                            'paths': list(cluster_paths),
-                            'size': len(cluster_paths)
-                        })
-            
-            # Process duplicates
-            if results.get('duplicates'):
-                for group in results['duplicates']:
-                    if isinstance(group, list):
-                        duplicate_paths.update(group)
-                        all_paths.update(group)  # Add duplicate paths to all_paths
-            
-            # Process low aesthetic images
-            if results.get('low_aesthetic'):
-                if isinstance(results['low_aesthetic'], list):
-                    low_aesthetic_paths.update(results['low_aesthetic'])
-                    all_paths.update(results['low_aesthetic'])  # Add low aesthetic paths to all_paths
-            
-            # If no paths were found in clusters/duplicates/low_aesthetic, use all processed images
-            if not all_paths and results.get('processed_images', 0) > 0:
-                # Get all image paths from the directory
-                image_paths = self._get_image_paths(results.get('directory', ''), results.get('recursive', False))
-                all_paths.update(image_paths)
-            
-            # Create final results
-            formatted_results = {
-                'images': [],
-                'clusters': clusters,
-                'duplicates': list(duplicate_paths),
-                'low_aesthetic': list(low_aesthetic_paths)
-            }
-            
-            # Add all images with their metadata
-            for path in all_paths:
-                image_data = {
+            conn = sqlite3.connect(Config.DB_PATH)
+            run_id = get_latest_run_id(conn, directory, params)
+            if not run_id:
+                return {'images': [], 'clusters': [], 'duplicates': [], 'low_aesthetic': []}
+            rows = get_run_results(conn, run_id)
+            clusters_count = get_run_clusters(conn, run_id)
+            images = []
+            clusters = {}
+            duplicates = []
+            low_aesthetic = []
+            for path, aesthetic_score, cluster_id, is_duplicate, is_low_aesthetic in rows:
+                images.append({
                     'path': path,
-                    'cluster': next((c['id'] for c in clusters if path in c['paths']), -1),
-                    'cluster_size': next((c['size'] for c in clusters if path in c['paths']), 0),
-                    'is_duplicate': path in duplicate_paths,
-                    'is_low_aesthetic': path in low_aesthetic_paths,
-                    'aesthetic_score': results.get('aesthetic_scores', {}).get(path)
-                }
-                formatted_results['images'].append(image_data)
-            
-            return formatted_results
-            
+                    'cluster': cluster_id,
+                    'cluster_size': clusters_count.get(cluster_id, 0),
+                    'is_duplicate': bool(is_duplicate),
+                    'is_low_aesthetic': bool(is_low_aesthetic),
+                    'aesthetic_score': aesthetic_score
+                })
+                if cluster_id not in clusters:
+                    clusters[cluster_id] = {'id': cluster_id, 'paths': [], 'size': clusters_count.get(cluster_id, 0)}
+                clusters[cluster_id]['paths'].append(path)
+                if is_duplicate:
+                    duplicates.append(path)
+                if is_low_aesthetic:
+                    low_aesthetic.append(path)
+            return {
+                'images': images,
+                'clusters': list(clusters.values()),
+                'duplicates': duplicates,
+                'low_aesthetic': low_aesthetic
+            }
         except Exception as e:
             logger.error(f"Error formatting results: {str(e)}")
             return {
@@ -633,18 +643,6 @@ def analyze() -> 'flask.Response':
         }
         logger.info(f"Analysis parameters: {params}")
 
-        # Check cache first
-        cached_results = get_cached_results(directory, params)
-        if cached_results:
-            logger.info("Using cached results")
-            analyzer = WallpaperAnalyzer()
-            formatted_results = analyzer.format_results_for_frontend(cached_results)
-            logger.info(f"Returning {len(formatted_results['images'])} images from cache")
-            return jsonify({
-                'success': True,
-                'images': formatted_results['images']
-            })
-
         # Perform analysis
         logger.info("Starting new analysis")
         analyzer = WallpaperAnalyzer()
@@ -659,11 +657,7 @@ def analyze() -> 'flask.Response':
         )
         logger.info("Analysis completed")
 
-        # Cache results
-        cache_results(directory, params, results)
-        logger.info("Results cached")
-
-        formatted_results = analyzer.format_results_for_frontend(results)
+        formatted_results = analyzer.format_results_for_frontend(directory, params)
         logger.info(f"Returning {len(formatted_results['images'])} images")
         
         response = {
@@ -695,12 +689,73 @@ def serve_image() -> 'flask.Response':
 @app.route('/api/results/<path:directory>')
 def get_results(directory: str) -> 'flask.Response':
     try:
-        if directory in analysis_results:
-            return jsonify(analysis_results[directory])
-        return jsonify({'error': 'Results not found'}), 404
+        params = {
+            'similarity_threshold': Config.DEFAULT_SIMILARITY_THRESHOLD,
+            'aesthetic_threshold': Config.DEFAULT_AESTHETIC_THRESHOLD,
+            'recursive': True,
+            'skip_duplicates': False,
+            'skip_aesthetics': False,
+            'limit': 0
+        }
+        analyzer = WallpaperAnalyzer()
+        formatted_results = analyzer.format_results_for_frontend(directory, params)
+        if not formatted_results['images']:
+            return jsonify({'error': 'Results not found'}), 404
+        return jsonify({'success': True, 'images': formatted_results['images']})
     except Exception as e:
         logger.error(f"Error getting results: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+def insert_analysis_run(conn, directory: str, params: dict, result_summary: dict) -> int:
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO analysis_runs (directory, params, run_time, result_summary)
+        VALUES (?, ?, ?, ?)
+    ''', (directory, json.dumps(params), datetime.now().isoformat(), json.dumps(result_summary)))
+    conn.commit()
+    return c.lastrowid
+
+def get_image_id(conn, directory: str, path: str, last_modified: float, size: int) -> int | None:
+    c = conn.cursor()
+    c.execute('''
+        SELECT id FROM images WHERE directory = ? AND path = ? AND last_modified = ? AND size = ?
+    ''', (directory, path, last_modified, size))
+    row = c.fetchone()
+    return row[0] if row else None
+
+def insert_image_analysis_map(conn, run_id: int, image_id: int, cluster_id: int, is_duplicate: bool, is_low_aesthetic: bool):
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO image_analysis_map (run_id, image_id, cluster_id, is_duplicate, is_low_aesthetic)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (run_id, image_id, cluster_id, int(is_duplicate), int(is_low_aesthetic)))
+    conn.commit()
+
+def get_latest_run_id(conn, directory: str, params: dict) -> int | None:
+    c = conn.cursor()
+    c.execute('''
+        SELECT id FROM analysis_runs WHERE directory = ? AND params = ? ORDER BY run_time DESC LIMIT 1
+    ''', (directory, json.dumps(params)))
+    row = c.fetchone()
+    return row[0] if row else None
+
+def get_run_results(conn, run_id: int):
+    c = conn.cursor()
+    # Join images and image_analysis_map for this run
+    c.execute('''
+        SELECT images.path, images.aesthetic_score, image_analysis_map.cluster_id, image_analysis_map.is_duplicate, image_analysis_map.is_low_aesthetic
+        FROM image_analysis_map
+        JOIN images ON image_analysis_map.image_id = images.id
+        WHERE image_analysis_map.run_id = ?
+    ''', (run_id,))
+    return c.fetchall()
+
+def get_run_clusters(conn, run_id: int):
+    c = conn.cursor()
+    c.execute('''
+        SELECT cluster_id, COUNT(*) FROM image_analysis_map WHERE run_id = ? GROUP BY cluster_id
+    ''', (run_id,))
+    return {row[0]: row[1] for row in c.fetchall()}
 
 def main() -> None:
     """Main entry point for the application"""
