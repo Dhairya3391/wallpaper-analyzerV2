@@ -1,0 +1,317 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap");
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 346.8 77.2% 49.8%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 346.8 77.2% 49.8%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 346.8 77.2% 49.8%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 346.8 77.2% 49.8%;
+  }
+
+  .valentine {
+    --background: 327 73% 97%;
+    --foreground: 326 100% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 326 100% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 326 100% 4%;
+    --primary: 346.8 77.2% 49.8%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 328 100% 94%;
+    --secondary-foreground: 326 100% 4%;
+    --muted: 328 100% 94%;
+    --muted-foreground: 326 30% 25%;
+    --accent: 328 100% 94%;
+    --accent-foreground: 326 100% 4%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 328 65% 90%;
+    --input: 328 65% 90%;
+    --ring: 346.8 77.2% 49.8%;
+  }
+
+  .synthwave {
+    --background: 258 90% 5%;
+    --foreground: 300 100% 90%;
+    --card: 258 50% 8%;
+    --card-foreground: 300 100% 90%;
+    --popover: 258 50% 8%;
+    --popover-foreground: 300 100% 90%;
+    --primary: 300 100% 50%;
+    --primary-foreground: 258 90% 5%;
+    --secondary: 258 30% 15%;
+    --secondary-foreground: 300 100% 90%;
+    --muted: 258 30% 15%;
+    --muted-foreground: 300 20% 70%;
+    --accent: 180 100% 50%;
+    --accent-foreground: 258 90% 5%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 258 30% 15%;
+    --input: 258 30% 15%;
+    --ring: 300 100% 50%;
+  }
+
+  .cyberpunk {
+    --background: 200 50% 5%;
+    --foreground: 180 100% 90%;
+    --card: 200 30% 8%;
+    --card-foreground: 180 100% 90%;
+    --popover: 200 30% 8%;
+    --popover-foreground: 180 100% 90%;
+    --primary: 180 100% 50%;
+    --primary-foreground: 200 50% 5%;
+    --secondary: 200 20% 15%;
+    --secondary-foreground: 180 100% 90%;
+    --muted: 200 20% 15%;
+    --muted-foreground: 180 20% 70%;
+    --accent: 300 100% 50%;
+    --accent-foreground: 200 50% 5%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 200 20% 15%;
+    --input: 200 20% 15%;
+    --ring: 180 100% 50%;
+  }
+
+  .forest {
+    --background: 120 60% 97%;
+    --foreground: 120 100% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 120 100% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 120 100% 4%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 120 60% 94%;
+    --secondary-foreground: 120 100% 4%;
+    --muted: 120 60% 94%;
+    --muted-foreground: 120 30% 25%;
+    --accent: 120 60% 94%;
+    --accent-foreground: 120 100% 4%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 120 45% 90%;
+    --input: 120 45% 90%;
+    --ring: 142 76% 36%;
+  }
+
+  .luxury {
+    --background: 45 100% 97%;
+    --foreground: 45 100% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 45 100% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 45 100% 4%;
+    --primary: 45 93% 47%;
+    --primary-foreground: 45 100% 97%;
+    --secondary: 45 100% 94%;
+    --secondary-foreground: 45 100% 4%;
+    --muted: 45 100% 94%;
+    --muted-foreground: 45 30% 25%;
+    --accent: 45 100% 94%;
+    --accent-foreground: 45 100% 4%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 45 65% 90%;
+    --input: 45 65% 90%;
+    --ring: 45 93% 47%;
+  }
+
+  .dracula {
+    --background: 231 15% 18%;
+    --foreground: 60 30% 96%;
+    --card: 232 14% 31%;
+    --card-foreground: 60 30% 96%;
+    --popover: 232 14% 31%;
+    --popover-foreground: 60 30% 96%;
+    --primary: 265 89% 78%;
+    --primary-foreground: 231 15% 18%;
+    --secondary: 232 14% 31%;
+    --secondary-foreground: 60 30% 96%;
+    --muted: 232 14% 31%;
+    --muted-foreground: 226 14% 71%;
+    --accent: 232 14% 31%;
+    --accent-foreground: 60 30% 96%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 232 14% 31%;
+    --input: 232 14% 31%;
+    --ring: 265 89% 78%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-border/80;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced focus styles */
+:focus-visible {
+  @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+}
+
+/* Masonry improvements */
+.columns-1 > *,
+.columns-2 > *,
+.columns-3 > *,
+.columns-4 > *,
+.columns-5 > * {
+  break-inside: avoid;
+  margin-bottom: 1.5rem;
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent;
+}
+
+/* Animation utilities */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Custom shadows */
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(var(--primary), 0.3);
+}
+
+.shadow-elegant {
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Improved transitions */
+* {
+  transition-property:
+    color, background-color, border-color, text-decoration-color, fill, stroke,
+    opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Typography improvements */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-poppins), system-ui, sans-serif;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+p {
+  line-height: 1.6;
+}
+
+/* Loading states */
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}

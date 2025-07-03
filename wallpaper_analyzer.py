@@ -29,8 +29,8 @@ class Config:
              torch.device("cuda") if torch.cuda.is_available() else \
              torch.device("cpu")
     
-    BATCH_SIZE = 64 if torch.backends.mps.is_available() else 32 if torch.cuda.is_available() else 8
-    MAX_WORKERS = 32 if torch.backends.mps.is_available() else multiprocessing.cpu_count()
+    BATCH_SIZE = 128 if torch.backends.mps.is_available() else 64 if torch.cuda.is_available() else 16
+    MAX_WORKERS = 64 if torch.backends.mps.is_available() else multiprocessing.cpu_count()
     IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif'}
     DEFAULT_SIMILARITY_THRESHOLD = 0.85
     DEFAULT_AESTHETIC_THRESHOLD = 0.8
@@ -234,54 +234,62 @@ class ImageProcessor:
             logger.error(f"Error calculating hash for {image_path}: {e}")
             return None
 
-    def process_batch(self, image_paths, process_type='features'):
-        """Process a batch of images for either feature extraction or aesthetic scoring"""
+    def process_batch(self, image_paths, process_type='features', progress_callback=None):
         results = {}
-        batch_images = []
-        valid_paths = []
-        
-        for path in image_paths:
-            try:
-                image = Image.open(path).convert('RGB')
-                image = self.transform(image)
-                batch_images.append(image)
-                valid_paths.append(path)
-            except Exception as e:
-                logger.error(f"Error loading image {path}: {e}")
-                continue
-        
-        if batch_images:
-            try:
-                batch_tensor = torch.stack(batch_images).to(self.device)
-                with torch.no_grad():
-                    if process_type == 'features':
-                        outputs = self.feature_model.features(batch_tensor)
-                        outputs = torch.mean(outputs, dim=[2, 3])
-                    else:  # aesthetic scoring
-                        outputs = self.aesthetic_model(batch_tensor)
-                        outputs = torch.sigmoid(outputs).squeeze()
-                    
-                    outputs = outputs.cpu().numpy()
-                    if outputs.ndim == 0:
-                        outputs = np.array([outputs])
-                    
-                    for path, output in zip(valid_paths, outputs):
-                        # Convert NumPy values to Python types
-                        if isinstance(output, np.ndarray):
-                            results[path] = output.tolist()
-                        else:
-                            results[path] = float(output)
+        batch_size = Config.BATCH_SIZE
+        total = len(image_paths)
+        for i in range(0, total, batch_size):
+            batch_paths = image_paths[i:i+batch_size]
+            logger.info(f"Processing batch {i//batch_size+1} ({len(batch_paths)} images) [{i+1}-{min(i+batch_size, total)} / {total}] for {process_type}")
+            batch_images = []
+            valid_paths = []
+            
+            for path in batch_paths:
+                try:
+                    image = Image.open(path).convert('RGB')
+                    image = self.transform(image)
+                    batch_images.append(image)
+                    valid_paths.append(path)
+                except Exception as e:
+                    logger.error(f"Error loading image {path}: {e}")
+                    continue
+            
+            if batch_images:
+                try:
+                    batch_tensor = torch.stack(batch_images).to(self.device)
+                    with torch.no_grad():
+                        if process_type == 'features':
+                            outputs = self.feature_model.features(batch_tensor)
+                            outputs = torch.mean(outputs, dim=[2, 3])
+                        else:  # aesthetic scoring
+                            outputs = self.aesthetic_model(batch_tensor)
+                            outputs = torch.sigmoid(outputs).squeeze()
                         
-            except Exception as e:
-                logger.error(f"Error processing batch: {e}")
-            finally:
-                del batch_tensor
-                del batch_images
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-                elif torch.backends.mps.is_available():
-                    torch.mps.empty_cache()
+                        outputs = outputs.cpu().numpy()
+                        if outputs.ndim == 0:
+                            outputs = np.array([outputs])
+                        
+                        for path, output in zip(valid_paths, outputs):
+                            # Convert NumPy values to Python types
+                            if isinstance(output, np.ndarray):
+                                results[path] = output.tolist()
+                            else:
+                                results[path] = float(output)
+                        
+                except Exception as e:
+                    logger.error(f"Error processing batch: {e}")
+                finally:
+                    del batch_tensor
+                    del batch_images
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    elif torch.backends.mps.is_available():
+                        torch.mps.empty_cache()
+            
+            if progress_callback:
+                progress_callback(min(i+batch_size, total), total)
         
+        logger.info(f"Completed {process_type} for {total} images.")
         return results
 
 class DuplicateDetector:
@@ -440,63 +448,100 @@ class WallpaperAnalyzer:
     def analyze_directory(self, directory, similarity_threshold=Config.DEFAULT_SIMILARITY_THRESHOLD,
                          aesthetic_threshold=Config.DEFAULT_AESTHETIC_THRESHOLD, recursive=False,
                          skip_duplicates=False, skip_aesthetics=False, limit=0):
-        """Analyze a directory of images"""
-        try:
-            logger.info(f"Starting analysis of directory: {directory}")
-            
-            # Get all image paths
-            image_paths = self._get_image_paths(directory, recursive)
-            if limit > 0:
-                image_paths = image_paths[:limit]
-            
-            results = {
-                'total_images': len(image_paths),
-                'processed_images': 0,
-                'duplicates': [],
-                'aesthetic_scores': {},
-                'clusters': {},
-                'cluster_features': {},
-                'errors': []
-            }
-            
-            if not image_paths:
-                return results
-            
-            # Find duplicates
-            if not skip_duplicates:
-                logger.info(f"Starting duplicate detection for {len(image_paths)} images")
-                results['duplicates'] = self.duplicate_detector.find_duplicates(
-                    image_paths,
-                    threshold=similarity_threshold
+        import time
+        t0 = time.time()
+        total_steps = 5
+        current_step = 0
+        logger.info(f"Starting analysis for {directory}")
+        # 1. Load image paths
+        logger.info("Loading image paths...")
+        image_paths = self._get_image_paths(directory, recursive)
+        if limit and limit > 0:
+            image_paths = image_paths[:limit]
+        logger.info(f"Loaded {len(image_paths)} image paths.")
+        current_step += 1
+        socketio.emit("analysis_progress", {"progress": int(current_step/total_steps*100), "stage": "Loaded images"})
+        t1 = time.time()
+        # 2. Feature extraction
+        logger.info("Starting feature extraction...")
+        features = None
+        if not skip_aesthetics or not skip_duplicates:
+            features = self.image_processor.process_batch(
+                image_paths,
+                process_type='features',
+                progress_callback=lambda done, total: socketio.emit(
+                    "analysis_progress",
+                    {"progress": int((current_step + done/total)/total_steps*100), "stage": "Feature extraction"}
                 )
-            
-            # Calculate aesthetic scores
-            if not skip_aesthetics:
-                logger.info("Starting aesthetic analysis")
-                results['aesthetic_scores'] = self.image_processor.process_batch(
+            )
+        logger.info("Feature extraction complete.")
+        current_step += 1
+        socketio.emit("analysis_progress", {"progress": int(current_step/total_steps*100), "stage": "Feature extraction complete"})
+        t2 = time.time()
+        # 3. Duplicate detection
+        logger.info("Starting duplicate detection...")
+        duplicates = []
+        if not skip_duplicates:
+            duplicates = self.duplicate_detector.find_duplicates(image_paths, threshold=similarity_threshold)
+        logger.info("Duplicate detection complete.")
+        current_step += 1
+        socketio.emit("analysis_progress", {"progress": int(current_step/total_steps*100), "stage": "Duplicate detection complete"})
+        t3 = time.time()
+        # 4. Clustering
+        logger.info("Starting clustering...")
+        clusters = {}
+        cluster_features = {}
+        if not skip_aesthetics:
+            cluster_result = self.image_clusterer.cluster_images(image_paths)
+            if isinstance(cluster_result, tuple):
+                clusters, cluster_features = cluster_result
+            else:
+                clusters = cluster_result
+        logger.info("Clustering complete.")
+        current_step += 1
+        socketio.emit("analysis_progress", {"progress": int(current_step/total_steps*100), "stage": "Clustering complete"})
+        t4 = time.time()
+        # 5. Aesthetic scoring
+        logger.info("Starting aesthetic scoring...")
+        aesthetic_scores = {}
+        if not skip_aesthetics:
+            # Compute aesthetic scores for all images
+            try:
+                scores = self.image_processor.process_batch(
                     image_paths,
-                    'aesthetic'
+                    process_type='aesthetic',
+                    progress_callback=lambda done, total: socketio.emit(
+                        "analysis_progress",
+                        {"progress": int((current_step + done/total)/total_steps*100), "stage": "Aesthetic scoring"}
+                    )
                 )
-            
-            # Cluster images
-            logger.info("Starting image clustering")
-            results['clusters'], results['cluster_features'] = self.image_clusterer.cluster_images(image_paths)
-            
-            results['processed_images'] = len(image_paths)
-            logger.info("Analysis completed")
-            return results
-            
-        except Exception as e:
-            logger.error(f"Error during analysis: {str(e)}", exc_info=True)
-            return {
-                'total_images': 0,
-                'processed_images': 0,
-                'duplicates': [],
-                'aesthetic_scores': {},
-                'clusters': {},
-                'cluster_features': {},
-                'errors': [str(e)]
-            }
+                # scores is a dict: {path: score}
+                for path, score in scores.items():
+                    # Clamp score to [0, 1] and convert to float
+                    try:
+                        s = float(score)
+                        s = max(0.0, min(1.0, s))
+                        aesthetic_scores[path] = s
+                    except Exception:
+                        continue
+            except Exception as e:
+                logger.error(f"Error during aesthetic scoring: {e}")
+        logger.info("Aesthetic scoring complete.")
+        current_step += 1
+        socketio.emit("analysis_progress", {"progress": int(current_step/total_steps*100), "stage": "Aesthetic scoring complete"})
+        t5 = time.time()
+        logger.info(f"Timing: image loading: {t1-t0:.2f}s, feature extraction: {t2-t1:.2f}s, duplicate detection: {t3-t2:.2f}s, clustering: {t4-t3:.2f}s, total: {t5-t0:.2f}s")
+        # Always return a results dictionary
+        return {
+            'directory': directory,
+            'total_images': len(image_paths),
+            'processed_images': len(image_paths),
+            'duplicates': duplicates,
+            'aesthetic_scores': aesthetic_scores,
+            'clusters': clusters,
+            'cluster_features': cluster_features,
+            'low_aesthetic': [],
+        }
 
     def _get_image_paths(self, directory, recursive=False):
         """Get all image paths in a directory"""
