@@ -12,9 +12,12 @@ import { useState } from "react";
 interface ImageData {
   path: string;
   cluster?: number;
-  aesthetic_score?: number;
+  cluster_size?: number;
   is_duplicate?: boolean;
   is_low_aesthetic?: boolean;
+  aesthetic_score?: number;
+  brightness?: number;
+  label?: string;
 }
 
 interface ImagePreviewProps {
@@ -112,7 +115,14 @@ export function ImagePreview({ image, onClose }: ImagePreviewProps) {
                 </span>
                 <div className="flex flex-wrap gap-2 justify-center">
                   {image.cluster !== undefined && image.cluster !== -1 && (
-                    <Badge variant="secondary">Cluster {image.cluster}</Badge>
+                    <Badge variant="secondary">
+                      Cluster {image.cluster}
+                      {image.label && image.label !== "unknown" && (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          ({image.label})
+                        </span>
+                      )}
+                    </Badge>
                   )}
                   {image.is_duplicate && (
                     <Badge variant="destructive">Duplicate</Badge>

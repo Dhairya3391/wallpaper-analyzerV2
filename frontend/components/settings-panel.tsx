@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -35,6 +34,8 @@ interface AnalysisSettings {
   skip_duplicates: boolean;
   skip_aesthetics: boolean;
   limit: number;
+  cluster_algorithm: string; // "minibatchkmeans" | "dbscan"
+  n_clusters: string; // "auto" or a number as string
 }
 
 interface SettingsPanelProps {
@@ -86,6 +87,7 @@ export function SettingsPanel({
                 </Label>
                 <Input
                   id="directory"
+                  name="directory"
                   value={settings.directory}
                   onChange={(e) => updateSetting("directory", e.target.value)}
                   placeholder="Enter the path to your image directory..."
@@ -103,6 +105,7 @@ export function SettingsPanel({
                 </div>
                 <Switch
                   id="recursive"
+                  name="recursive"
                   checked={settings.recursive}
                   onCheckedChange={(checked) =>
                     updateSetting("recursive", checked)
@@ -130,15 +133,21 @@ export function SettingsPanel({
                     {settings.similarity_threshold.toFixed(2)}
                   </span>
                 </div>
-                <Slider
-                  value={[settings.similarity_threshold]}
-                  onValueChange={([value]) =>
-                    updateSetting("similarity_threshold", value)
+                <Input
+                  id="similarity-threshold"
+                  name="similarity_threshold"
+                  type="number"
+                  value={settings.similarity_threshold}
+                  onChange={(e) =>
+                    updateSetting(
+                      "similarity_threshold",
+                      parseFloat(e.target.value),
+                    )
                   }
                   min={0}
                   max={1}
                   step={0.01}
-                  className="w-full"
+                  className="mt-1"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Higher values detect more similar images for clustering
@@ -154,15 +163,21 @@ export function SettingsPanel({
                     {settings.aesthetic_threshold.toFixed(2)}
                   </span>
                 </div>
-                <Slider
-                  value={[settings.aesthetic_threshold]}
-                  onValueChange={([value]) =>
-                    updateSetting("aesthetic_threshold", value)
+                <Input
+                  id="aesthetic-threshold"
+                  name="aesthetic_threshold"
+                  type="number"
+                  value={settings.aesthetic_threshold}
+                  onChange={(e) =>
+                    updateSetting(
+                      "aesthetic_threshold",
+                      parseFloat(e.target.value),
+                    )
                   }
                   min={0}
                   max={1}
                   step={0.01}
-                  className="w-full"
+                  className="mt-1"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Minimum aesthetic score for image quality filtering
@@ -193,7 +208,8 @@ export function SettingsPanel({
                   </p>
                 </div>
                 <Switch
-                  id="skip_duplicates"
+                  id="skip-duplicates"
+                  name="skip_duplicates"
                   checked={settings.skip_duplicates}
                   onCheckedChange={(checked) =>
                     updateSetting("skip_duplicates", checked)
@@ -214,13 +230,86 @@ export function SettingsPanel({
                   </p>
                 </div>
                 <Switch
-                  id="skip_aesthetics"
+                  id="skip-aesthetics"
+                  name="skip_aesthetics"
                   checked={settings.skip_aesthetics}
                   onCheckedChange={(checked) =>
                     updateSetting("skip_aesthetics", checked)
                   }
                 />
               </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Clustering Options */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Sliders className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-semibold">Clustering Options</h3>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <Label
+                  htmlFor="cluster_algorithm"
+                  className="text-sm font-medium"
+                >
+                  Clustering Algorithm
+                </Label>
+                <Select
+                  value={settings.cluster_algorithm}
+                  onValueChange={(value) =>
+                    updateSetting("cluster_algorithm", value)
+                  }
+                  name="cluster_algorithm"
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="minibatchkmeans">
+                      MiniBatchKMeans (fast, default)
+                    </SelectItem>
+                    <SelectItem value="dbscan">
+                      DBSCAN (adaptive, no k)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose the clustering algorithm for grouping images
+                </p>
+              </div>
+              {settings.cluster_algorithm === "minibatchkmeans" && (
+                <div>
+                  <Label htmlFor="n_clusters" className="text-sm font-medium">
+                    Number of Clusters
+                  </Label>
+                  <Select
+                    value={settings.n_clusters}
+                    onValueChange={(value) =>
+                      updateSetting("n_clusters", value)
+                    }
+                    name="n_clusters"
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto (elbow method)</SelectItem>
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="7">7</SelectItem>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="15">15</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    `&quot;`Auto`&quot;` will use the elbow method to determine
+                    the best k
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -236,23 +325,17 @@ export function SettingsPanel({
               <Label htmlFor="limit" className="text-sm font-medium">
                 Processing Limit
               </Label>
-              <Select
-                value={settings.limit.toString()}
-                onValueChange={(value) =>
-                  updateSetting("limit", Number.parseInt(value))
+              <Input
+                id="limit"
+                name="limit"
+                type="number"
+                value={settings.limit}
+                onChange={(e) =>
+                  updateSetting("limit", parseInt(e.target.value, 10))
                 }
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">No Limit</SelectItem>
-                  <SelectItem value="100">100 images</SelectItem>
-                  <SelectItem value="500">500 images</SelectItem>
-                  <SelectItem value="1000">1,000 images</SelectItem>
-                  <SelectItem value="5000">5,000 images</SelectItem>
-                </SelectContent>
-              </Select>
+                min={0}
+                className="mt-1"
+              />
               <p className="text-xs text-muted-foreground mt-1">
                 Limit the number of images to process for faster analysis
               </p>

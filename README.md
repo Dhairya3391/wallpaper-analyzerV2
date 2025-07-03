@@ -17,19 +17,22 @@ A powerful and intelligent wallpaper management system that helps you organize, 
 - 🎨 **Image Analysis**: Advanced feature extraction using ResNet50
 - 📱 **Cross-Platform**: Works on Windows, macOS, and Linux
 - 💾 **Result Caching**: Intelligent caching system for faster repeated analyses
-- 📈 **Image Clustering**: Automatic grouping of similar wallpapers using K-means clustering
+- 📈 **Image Clustering**: Automatic grouping of similar wallpapers using user-selectable MiniBatchKMeans or DBSCAN
+- 🏷️ **CLIP-based Cluster Naming**: Each cluster is automatically tagged with a descriptive label using OpenAI CLIP
+- 💡 **Perceptual Brightness**: Each image is scored for perceptual brightness using LAB color space
+- ⚡ **Performance Optimization**: Uses Pillow-SIMD for fast image loading/resizing, automatic device selection (CPU/CUDA/MPS), and batch size adjustment
 - 🔄 **Recursive Analysis**: Option to analyze subdirectories
-- ⚡ **Performance Optimization**: Automatic device selection (CPU/CUDA/MPS) and batch size adjustment
+- 🧑‍💻 **User-Configurable**: Choose clustering algorithm, cluster count, thresholds, and more in the UI
 
 ## 🛠️ Technical Stack
 
 - **Backend**: Python 3.8+
 - **Web Framework**: Flask with SocketIO
-- **AI/ML**: PyTorch, torchvision
-- **Image Processing**: OpenCV, Pillow, scikit-image
+- **AI/ML**: PyTorch, torchvision, open_clip_torch (CLIP)
+- **Image Processing**: Pillow-SIMD, OpenCV, scikit-image
 - **Data Processing**: NumPy, SciPy, scikit-learn
 - **Real-time Communication**: Flask-SocketIO, eventlet
-- **Image Analysis**: ResNet50, Perceptual Hashing
+- **Image Analysis**: ResNet50, Perceptual Hashing, CLIP
 - **Database**: SQLite for result caching
 - **Frontend**: Next.js, React, Tailwind CSS, shadcn/ui
 
@@ -38,7 +41,9 @@ A powerful and intelligent wallpaper management system that helps you organize, 
 - Python 3.8 or higher
 - Node.js 18+ (for frontend)
 - CUDA-capable GPU (optional, for faster processing)
-- MPS support for Apple Silicon (optional)
+- MPS support for Apple Silicon (optional, recommended for Mac)
+- Pillow-SIMD (install via Homebrew or pip for best performance)
+- open_clip_torch (for CLIP-based cluster naming)
 
 ## 🚀 Installation
 
@@ -64,11 +69,18 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. (Optional) Run a security audit:
+4. (Optional, for best performance on Mac):
 
 ```bash
-pip install pip-audit
-pip-audit
+brew install pillow-simd
+pip uninstall pillow && pip install --force-reinstall pillow-simd
+```
+
+5. (Optional, for Apple Silicon):
+
+```bash
+pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cpu
+# or follow PyTorch MPS install instructions
 ```
 
 ### Frontend
@@ -114,6 +126,8 @@ The frontend will start on [http://localhost:3000](http://localhost:3000)
 
 1. Open your browser and go to [http://localhost:3000](http://localhost:3000)
 2. Select a directory containing your wallpapers and start the analysis!
+3. Choose clustering algorithm (MiniBatchKMeans or DBSCAN), cluster count, and thresholds in the settings panel.
+4. View clusters, CLIP tags, brightness, and more in the UI.
 
 ## ⚙️ Configuration
 
@@ -155,6 +169,7 @@ wallpaper-analyzerV2/
 ├── analysis_cache.db         # SQLite cache
 ├── analyzed.log              # Log file
 ├── README.md                 # This file
+├── index.html                # Legacy HTML UI (for backup/testing only)
 └── ...
 ```
 

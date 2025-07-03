@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-theme="valentine">
   <head>
     <meta charset="UTF-8" />
@@ -212,16 +212,16 @@
                       }
                     });
                     this.clusters = Array.from(clusterMap.values()).sort(
-                      (a, b) => a.id - b.id
+                      (a, b) => a.id - b.id,
                     );
                     this.showToast(
                       `Analysis complete: ${data.images.length} images found`,
-                      "success"
+                      "success",
                     );
                   } else {
                     this.showToast(
                       "No images found in the selected directory",
-                      "warning"
+                      "warning",
                     );
                   }
                 } else {
@@ -275,7 +275,7 @@
             gsap.fromTo(
               element,
               { scale: 0.95, opacity: 0 },
-              { scale: 1, opacity: 1, duration: 0.3, ease: "power2.out" }
+              { scale: 1, opacity: 1, duration: 0.3, ease: "power2.out" },
             );
           },
 
@@ -310,7 +310,7 @@
               "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjOTk5Ij5JbWFnZSBsb2FkIGVycm9yPC90ZXh0Pjwvc3ZnPg==";
           }
         },
-        true
+        true,
       );
     </script>
     <style>
@@ -352,8 +352,10 @@
       }
       .masonry-item img:hover {
         transform: scale(1.07);
-        box-shadow: 0 4px 8px rgba(255, 63, 84, 0.3),
-          0 0 12px rgba(59, 255, 230, 0.2), 0 0 2px rgba(255, 93, 115, 0.6),
+        box-shadow:
+          0 4px 8px rgba(255, 63, 84, 0.3),
+          0 0 12px rgba(59, 255, 230, 0.2),
+          0 0 2px rgba(255, 93, 115, 0.6),
           0 6px 20px rgba(0, 0, 0, 0.6);
       }
       .aesthetic-score {
