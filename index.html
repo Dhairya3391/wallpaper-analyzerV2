@@ -90,8 +90,6 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
     />
-    <!-- Socket.IO -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <!-- Alpine.js for reactivity -->
     <script
       defer
@@ -111,7 +109,6 @@
           showPreview: false,
           showSettings: false,
           previewImage: null,
-          socket: null,
           clusters: [],
           currentTheme: "valentine",
           themes: [
@@ -157,40 +154,6 @@
           selectedCluster: "",
 
           init() {
-            // Initialize Socket.IO
-            this.socket = io({
-              transports: ["websocket", "polling"],
-              reconnectionAttempts: Infinity,
-              reconnectionDelay: 1000,
-              reconnectionDelayMax: 5000,
-              timeout: 60000,
-              autoConnect: true,
-              forceNew: true,
-              pingTimeout: 60000,
-              pingInterval: 25000,
-            });
-
-            // Socket.IO event handlers
-            this.socket.on("connect", () => {
-              console.log("Connected to server");
-              this.showToast("Connected to server", "success");
-            });
-
-            this.socket.on("disconnect", () => {
-              console.log("Disconnected from server");
-              this.showToast("Disconnected from server", "error");
-            });
-
-            this.socket.on("analysis_progress", (data) => {
-              console.log("Progress:", data);
-              // Update progress if needed
-            });
-
-            this.socket.on("error", (error) => {
-              console.error("Socket.IO error:", error);
-              this.showToast(`Error: ${error.message}`, "error");
-            });
-
             // Initialize Masonry after images are loaded
             this.$watch("images", () => {
               this.$nextTick(() => {

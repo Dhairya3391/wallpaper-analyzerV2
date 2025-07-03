@@ -178,6 +178,12 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Flask team for the web framework
 - OpenCV and scikit-image teams for image processing capabilities
 
+## 📝 Legacy HTML UI (index.html)
+
+- The file `index.html` is provided as a backup, legacy UI for users who do not wish to use the Next.js frontend.
+- It no longer supports real-time progress updates (Socket.IO) and only interacts with the backend via REST API endpoints.
+- For the best experience, use the Next.js frontend in the `frontend/` directory.
+
 ---
 
 Made with Passion by Dhairya

@@ -14,7 +14,6 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_file
-from flask_socketio import SocketIO
 from flask_cors import CORS
 import multiprocessing
 from functools import lru_cache
@@ -185,20 +184,9 @@ logger = logging.getLogger('WallpaperAnalyzer')
 # Flask app initialization
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(
-    app,
-    async_mode='eventlet',
-    cors_allowed_origins="*",
-    logger=Config.ENABLE_SOCKET_LOGGING,
-    engineio_logger=Config.ENABLE_SOCKET_LOGGING,
-    ping_timeout=60,
-    ping_interval=25,
-    max_http_buffer_size=1e8
-)
 
 # Global state
 analysis_results = {}
-active_connections = set()
 
 class ImageProcessor:
     def __init__(self) -> None:
@@ -466,7 +454,6 @@ class WallpaperAnalyzer:
             image_paths = image_paths[:limit]
         logger.info(f"Loaded {len(image_paths)} image paths.")
         current_step += 1
-        socketio.emit("analysis_progress", {"progress": int(current_step/total_steps*100), "stage": "Loaded images"})
         t1 = time.time()
         # 2. Feature extraction
         logger.info("Starting feature extraction...")
@@ -474,15 +461,10 @@ class WallpaperAnalyzer:
         if not skip_aesthetics or not skip_duplicates:
             features = self.image_processor.process_batch(
                 image_paths,
-                process_type='features',
-                progress_callback=lambda done, total: socketio.emit(
-                    "analysis_progress",
-                    {"progress": int((current_step + done/total)/total_steps*100), "stage": "Feature extraction"}
-                )
+                process_type='features'
             )
         logger.info("Feature extraction complete.")
         current_step += 1
-        socketio.emit("analysis_progress", {"progress": int(current_step/total_steps*100), "stage": "Feature extraction complete"})
         t2 = time.time()
         # 3. Duplicate detection
         logger.info("Starting duplicate detection...")
@@ -491,7 +473,6 @@ class WallpaperAnalyzer:
             duplicates = self.duplicate_detector.find_duplicates(image_paths, threshold=similarity_threshold)
         logger.info("Duplicate detection complete.")
         current_step += 1
-        socketio.emit("analysis_progress", {"progress": int(current_step/total_steps*100), "stage": "Duplicate detection complete"})
         t3 = time.time()
         # 4. Clustering
         logger.info("Starting clustering...")
@@ -505,7 +486,6 @@ class WallpaperAnalyzer:
                 clusters = cluster_result
         logger.info("Clustering complete.")
         current_step += 1
-        socketio.emit("analysis_progress", {"progress": int(current_step/total_steps*100), "stage": "Clustering complete"})
         t4 = time.time()
         # 5. Aesthetic scoring
         logger.info("Starting aesthetic scoring...")
@@ -515,11 +495,7 @@ class WallpaperAnalyzer:
             try:
                 scores = self.image_processor.process_batch(
                     image_paths,
-                    process_type='aesthetic',
-                    progress_callback=lambda done, total: socketio.emit(
-                        "analysis_progress",
-                        {"progress": int((current_step + done/total)/total_steps*100), "stage": "Aesthetic scoring"}
-                    )
+                    process_type='aesthetic'
                 )
                 # scores is a dict: {path: score}
                 for path, score in scores.items():
@@ -534,7 +510,6 @@ class WallpaperAnalyzer:
                 logger.error(f"Error during aesthetic scoring: {e}")
         logger.info("Aesthetic scoring complete.")
         current_step += 1
-        socketio.emit("analysis_progress", {"progress": int(current_step/total_steps*100), "stage": "Aesthetic scoring complete"})
         t5 = time.time()
         logger.info(f"Timing: image loading: {t1-t0:.2f}s, feature extraction: {t2-t1:.2f}s, duplicate detection: {t3-t2:.2f}s, clustering: {t4-t3:.2f}s, total: {t5-t0:.2f}s")
         # Always return a results dictionary
@@ -727,39 +702,19 @@ def get_results(directory: str) -> 'flask.Response':
         logger.error(f"Error getting results: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-# Socket.IO event handlers
-@socketio.on('connect')
-def handle_connect() -> None:
-    logger.info(f"Client connected: {request.sid}")
-    active_connections.add(request.sid)
-    socketio.emit('connection_status', {'status': 'connected'})
-
-@socketio.on('disconnect')
-def handle_disconnect(client_id: str) -> None:
-    if request.sid in active_connections:
-        active_connections.remove(request.sid)
-
-@socketio.on_error()
-def error_handler(e: Exception) -> None:
-    logger.error(f"Socket.IO error: {str(e)}")
-    socketio.emit('error', {'message': str(e)})
-
 def main() -> None:
     """Main entry point for the application"""
     try:
         with app.app_context():
             print(f"Server running at http://localhost:{Config.PORT}")
-            socketio.run(
-                app,
+            app.run(
                 host=Config.HOST,
                 port=Config.PORT,
                 debug=Config.DEBUG,
-                use_reloader=False,
-                allow_unsafe_werkzeug=True
+                use_reloader=False
             )
     except Exception as e:
-        logger.error(f"Error starting application: {str(e)}", exc_info=True)
-        raise
+        logger.error(f"Error running server: {str(e)}")
 
 if __name__ == '__main__':
     main() 
