@@ -57,6 +57,18 @@ class Config:
     MAX_HASH_CACHE = 2000
     DUPLICATE_FEATURE_LIMIT = 1000
 
+# Logging setup
+handlers = [logging.FileHandler('analyzed.log')]
+if Config.ENABLE_APP_LOGGING:
+    handlers.append(logging.StreamHandler())
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=handlers
+)
+logger = logging.getLogger('WallpaperAnalyzer')
+
 # Database initialization
 def init_db() -> None:
     conn = sqlite3.connect(Config.DB_PATH)
@@ -73,7 +85,8 @@ def init_db() -> None:
             features BLOB,
             aesthetic_score REAL,
             analyzed_at TIMESTAMP,
-            other_metadata TEXT
+            other_metadata TEXT,
+            UNIQUE(directory, path, last_modified, size)
         )
     ''')
     # Per-analysis run
@@ -104,6 +117,49 @@ def init_db() -> None:
 # Initialize database on startup
 init_db()
 
+def ensure_unique_constraint():
+    """Ensure the unique constraint exists on the images table"""
+    conn = None
+    try:
+        conn = sqlite3.connect(Config.DB_PATH)
+        c = conn.cursor()
+        
+        # Check if the unique constraint exists
+        c.execute("PRAGMA table_info(images)")
+        columns = c.fetchall()
+        
+        # Check if we need to add the unique constraint
+        has_constraint = False
+        try:
+            c.execute("PRAGMA index_list(images)")
+            indexes = c.fetchall()
+            for index in indexes:
+                if 'sqlite_autoindex' in str(index) or 'directory_path_last_modified_size' in str(index):
+                    has_constraint = True
+                    break
+        except:
+            pass
+        
+        if not has_constraint:
+            try:
+                # Add the unique constraint
+                c.execute('''
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_images_unique 
+                    ON images(directory, path, last_modified, size)
+                ''')
+                conn.commit()
+                logger.info("Added unique constraint to images table")
+            except Exception as e:
+                logger.warning(f"Could not add unique constraint: {e}")
+    except Exception as e:
+        logger.error(f"Error ensuring unique constraint: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+# Ensure unique constraint exists
+ensure_unique_constraint()
+
 def get_image_cache_entry(conn, directory: str, path: str, last_modified: float, size: int):
     with conn:
         c = conn.cursor()
@@ -124,18 +180,6 @@ def upsert_image_cache_entry(conn, directory: str, path: str, last_modified: flo
             analyzed_at=excluded.analyzed_at
     ''', (directory, path, last_modified, size, features, aesthetic_score, datetime.now().isoformat()))
     conn.commit()
-
-# Logging setup
-handlers = [logging.FileHandler('analyzed.log')]
-if Config.ENABLE_APP_LOGGING:
-    handlers.append(logging.StreamHandler())
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=handlers
-)
-logger = logging.getLogger('WallpaperAnalyzer')
 
 # Flask app initialization
 app = Flask(__name__)
@@ -512,43 +556,49 @@ class WallpaperAnalyzer:
         current_step += 1
         t5 = time.time()
         logger.info(f"Timing: image loading: {t1-t0:.2f}s, feature extraction: {t2-t1:.2f}s, duplicate detection: {t3-t2:.2f}s, clustering: {t4-t3:.2f}s, total: {t5-t0:.2f}s")
+        
         # After all analysis steps (duplicates, clusters, scores) are complete:
-        # Insert analysis run
-        result_summary = {
-            'duplicates': duplicates,
-            'clusters': clusters,
-            'aesthetic_scores': aesthetic_scores
-        }
-        run_id = insert_analysis_run(conn, directory, {
-            'similarity_threshold': similarity_threshold,
-            'aesthetic_threshold': aesthetic_threshold,
-            'recursive': recursive,
-            'skip_duplicates': skip_duplicates,
-            'skip_aesthetics': skip_aesthetics,
-            'limit': limit
-        }, result_summary)
-        # Map images to this run
-        for path in image_paths:
-            try:
-                stat = os.stat(path)
-                image_id = get_image_id(conn, directory, path, stat.st_mtime, stat.st_size)
-                if image_id is None:
-                    continue
-                # Find cluster_id
-                cluster_id = -1
-                for cid, cdata in clusters.items():
-                    if 'paths' in cdata and path in cdata['paths']:
-                        cluster_id = cid
-                        break
-                # Is duplicate?
-                is_dup = any(path in group for group in duplicates)
-                # Is low aesthetic?
-                is_low = False
-                if path in aesthetic_scores:
-                    is_low = aesthetic_scores[path] < aesthetic_threshold
-                insert_image_analysis_map(conn, run_id, image_id, cluster_id, is_dup, is_low)
-            except Exception as e:
-                logger.error(f"Error mapping image to analysis run: {e}")
+        # Create new database connection for storing results
+        conn = sqlite3.connect(Config.DB_PATH)
+        try:
+            # Insert analysis run
+            result_summary = {
+                'duplicates': duplicates,
+                'clusters': clusters,
+                'aesthetic_scores': aesthetic_scores
+            }
+            run_id = insert_analysis_run(conn, directory, {
+                'similarity_threshold': similarity_threshold,
+                'aesthetic_threshold': aesthetic_threshold,
+                'recursive': recursive,
+                'skip_duplicates': skip_duplicates,
+                'skip_aesthetics': skip_aesthetics,
+                'limit': limit
+            }, result_summary)
+            # Map images to this run
+            for path in image_paths:
+                try:
+                    stat = os.stat(path)
+                    image_id = get_image_id(conn, directory, path, stat.st_mtime, stat.st_size)
+                    if image_id is None:
+                        continue
+                    # Find cluster_id
+                    cluster_id = -1
+                    for cid, cdata in clusters.items():
+                        if 'paths' in cdata and path in cdata['paths']:
+                            cluster_id = cid
+                            break
+                    # Is duplicate?
+                    is_dup = any(path in group for group in duplicates)
+                    # Is low aesthetic?
+                    is_low = False
+                    if path in aesthetic_scores:
+                        is_low = aesthetic_scores[path] < aesthetic_threshold
+                    insert_image_analysis_map(conn, run_id, image_id, cluster_id, is_dup, is_low)
+                except Exception as e:
+                    logger.error(f"Error mapping image to analysis run: {e}")
+        finally:
+            conn.close()
         # Always return a results dictionary
         return {
             'directory': directory,
@@ -579,6 +629,7 @@ class WallpaperAnalyzer:
 
     def format_results_for_frontend(self, directory: str, params: dict) -> dict:
         """Format analysis results for frontend display using the new cache schema"""
+        conn = None
         try:
             conn = sqlite3.connect(Config.DB_PATH)
             run_id = get_latest_run_id(conn, directory, params)
@@ -620,6 +671,9 @@ class WallpaperAnalyzer:
                 'duplicates': [],
                 'low_aesthetic': []
             }
+        finally:
+            if conn:
+                conn.close()
 
 # Flask routes
 @app.route('/')
