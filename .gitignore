@@ -1,2 +1,4 @@
 node_modules/
 .env
+.analyzed.log
+image_cache/
