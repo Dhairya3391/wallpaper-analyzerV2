@@ -1,20 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Header } from "@/components/header";
 import { ImageMasonry } from "@/components/image-masonry";
-import { StatsBar } from "@/components/stats-bar";
-import { FilterPanel } from "@/components/filter-panel";
+import { SearchBar } from "@/components/search-bar";
+import { FilterTabs } from "@/components/filter-tabs";
 import { SettingsPanel } from "@/components/settings-panel";
+import { ImagePreview } from "@/components/image-preview";
 import { ThemeProvider } from "@/components/theme-provider";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { LoadingSpinner } from "@/components/loading-spinner";
+import { EmptyState } from "@/components/empty-state";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
+import { useDebounce } from "@/hooks/use-debounce";
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
-// Define ImageData type
 interface ImageData {
   path: string;
   cluster?: number;
@@ -24,16 +25,26 @@ interface ImageData {
   aesthetic_score?: number;
 }
 
+interface ClusterData {
+  id: number;
+  size: number;
+}
+
 export default function Home() {
-  const [images, setImages] = useState<ImageData[]>([]);
-  const [filteredImages, setFilteredImages] = useState<ImageData[]>([]);
-  const [clusters, setClusters] = useState<{ id: number; size: number }[]>([]);
-  const [selectedCluster, setSelectedCluster] = useState("all");
+  const [allImages, setAllImages] = useState<ImageData[]>([]);
+  const [displayedImages, setDisplayedImages] = useState<ImageData[]>([]);
+  const [clusters, setClusters] = useState<ClusterData[]>([]);
+  const [selectedCluster, setSelectedCluster] = useState<string>("all");
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showTip, setShowTip] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [hasAnalyzed, setHasAnalyzed] = useState(false);
+  
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const [settings, setSettings] = useState({
     directory: "/Users/dhairya/Downloads/walls",
@@ -45,211 +56,317 @@ export default function Home() {
     limit: 1000,
   });
 
+  // Filter images based on search and cluster selection
+  const filteredImages = useCallback(() => {
+    let filtered = allImages;
+
+    // Apply search filter
+    if (debouncedSearchTerm) {
+      filtered = filtered.filter((image) =>
+        image.path.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+      );
+    }
+
+    // Apply cluster filter
+    if (showDuplicates) {
+      filtered = filtered.filter((img) => img.is_duplicate);
+    } else if (selectedCluster !== "all") {
+      filtered = filtered.filter(
+        (img) => String(img.cluster) === selectedCluster
+      );
+    }
+
+    return filtered;
+  }, [allImages, debouncedSearchTerm, selectedCluster, showDuplicates]);
+
+  // Infinite scroll implementation
+  const IMAGES_PER_PAGE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const loadMoreImages = useCallback(() => {
+    const filtered = filteredImages();
+    const startIndex = (currentPage - 1) * IMAGES_PER_PAGE;
+    const endIndex = startIndex + IMAGES_PER_PAGE;
+    const newImages = filtered.slice(startIndex, endIndex);
+    
+    if (currentPage === 1) {
+      setDisplayedImages(newImages);
+    } else {
+      setDisplayedImages(prev => [...prev, ...newImages]);
+    }
+  }, [filteredImages, currentPage]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+    setDisplayedImages([]);
+  }, [debouncedSearchTerm, selectedCluster, showDuplicates]);
+
+  // Load images when page changes
+  useEffect(() => {
+    loadMoreImages();
+  }, [loadMoreImages]);
+
+  // Infinite scroll hook
+  const hasMore = displayedImages.length < filteredImages().length;
+  
+  useInfiniteScroll({
+    target: loadMoreRef,
+    onIntersect: () => {
+      if (hasMore && !isLoading) {
+        setCurrentPage(prev => prev + 1);
+      }
+    },
+    enabled: hasMore && !isLoading,
+  });
+
   const analyzeDirectory = async () => {
+    if (!settings.directory.startsWith("/")) {
+      setError("Please enter an absolute directory path");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
-    setShowTip(false);
-    const start = Date.now();
+    setHasAnalyzed(false);
+
     try {
       const response = await fetch(`${BACKEND_URL}/api/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       });
+
       const data = await response.json();
-      if (!data.success) throw new Error(data.error || "Analysis failed");
-      setImages(data.images);
-      setFilteredImages(data.images);
-      // Try to extract clusters from images (for cache or legacy data)
-      let clustersArr: { id: number; size: number }[] = [];
+
+      if (!data.success) {
+        throw new Error(data.error || "Analysis failed");
+      }
+
+      setAllImages(data.images || []);
+      setHasAnalyzed(true);
+
+      // Extract clusters
       const clusterMap = new Map<number, number>();
-      data.images.forEach((img: ImageData) => {
-        const clusterId =
-          typeof img.cluster === "number" ? img.cluster : undefined;
+      (data.images || []).forEach((img: ImageData) => {
+        const clusterId = typeof img.cluster === "number" ? img.cluster : undefined;
         if (clusterId !== undefined && clusterId !== -1) {
           clusterMap.set(clusterId, (clusterMap.get(clusterId) || 0) + 1);
         }
       });
-      clustersArr = Array.from(clusterMap.entries()).map(([id, size]) => ({
+
+      const clustersArr = Array.from(clusterMap.entries()).map(([id, size]) => ({
         id,
         size,
       }));
-      // If all cluster sizes are 0, try to use cluster_size from images (cache fallback)
-      if (clustersArr.length === 0 && data.images.length > 0) {
-        const fallbackMap = new Map<number, number>();
-        data.images.forEach((img: ImageData) => {
-          const clusterId =
-            typeof img.cluster === "number" ? img.cluster : undefined;
-          if (
-            clusterId !== undefined &&
-            clusterId !== -1 &&
-            typeof img.cluster_size === "number"
-          ) {
-            fallbackMap.set(
-              clusterId,
-              Math.max(fallbackMap.get(clusterId) || 0, img.cluster_size),
-            );
-          }
-        });
-        clustersArr = Array.from(fallbackMap.entries()).map(([id, size]) => ({
-          id,
-          size,
-        }));
-      }
+
       setClusters(clustersArr);
-      // Show tip if analysis took more than 10 seconds
-      if (Date.now() - start > 10000) setShowTip(true);
+      setCurrentPage(1);
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Unknown error");
-      }
-      setImages([]);
-      setFilteredImages([]);
+      setError(err instanceof Error ? err.message : "Unknown error");
+      setAllImages([]);
       setClusters([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (showDuplicates) {
-      setFilteredImages(images.filter((img) => img.is_duplicate));
-    } else if (selectedCluster === "all") {
-      setFilteredImages(images);
-    } else {
-      setFilteredImages(
-        images.filter((img) => String(img.cluster) === selectedCluster),
-      );
-    }
-  }, [selectedCluster, images, showDuplicates]);
-
-  const totalImages = images.length;
-  const totalClusters = clusters.length;
-  const isAbsolutePath = settings.directory.startsWith("/");
-
-  const hasDuplicates = images.some((img) => img.is_duplicate);
+  const totalImages = allImages.length;
+  const filteredCount = filteredImages().length;
+  const hasDuplicates = allImages.some((img) => img.is_duplicate);
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <div className="flex flex-col min-h-screen bg-background text-foreground">
-        <Header />
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+      <div className="min-h-screen bg-background transition-colors duration-300">
+        <Header onSettingsClick={() => setIsSettingsOpen(true)} />
 
-        <main className="flex-1 p-4 md:p-8 lg:p-12 transition-all duration-300 ease-in-out mx-auto w-full max-w-6xl">
-          <div className="space-y-6 mb-8">
-            <div className="flex flex-col md:flex-row md:items-end md:space-x-4 space-y-4 md:space-y-0">
-              <div className="flex-1">
-                <FilterPanel
-                  isOpen={true}
-                  clusters={clusters}
-                  selectedCluster={selectedCluster}
-                  onClusterChange={setSelectedCluster}
-                  hasDuplicates={hasDuplicates}
-                  showDuplicates={showDuplicates}
-                  onShowDuplicates={setShowDuplicates}
+        <main className="container mx-auto px-6 py-12">
+          {/* Hero Section */}
+          <div className="text-center mb-20">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="space-professional-lg"
+            >
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-professional-heading mb-8 leading-tight">
+                Beautiful wallpapers,{" "}
+                <span className="gradient-text">
+                  organized by AI
+                </span>
+              </h1>
+              
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.6 }}
+                className="text-xl md:text-2xl text-professional-muted mb-12 max-w-3xl mx-auto leading-relaxed"
+              >
+                Discover, analyze, and curate your perfect image collection with
+                advanced AI algorithms and beautiful design.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.6 }}
+              >
+                <SearchBar
+                  value={settings.directory}
+                  onChange={(value) =>
+                    setSettings((s) => ({ ...s, directory: value }))
+                  }
+                  onAnalyze={analyzeDirectory}
+                  isLoading={isLoading}
+                  placeholder="Enter directory path (e.g. /Users/yourname/Pictures)"
+                />
+              </motion.div>
+
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="mt-8 p-4 glass border border-destructive/20 rounded-2xl text-destructive max-w-md mx-auto"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-destructive" />
+                    {error}
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+          </div>
+
+          {/* Filter Tabs */}
+          {hasAnalyzed && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mb-16"
+            >
+              <FilterTabs
+                clusters={clusters}
+                selectedCluster={selectedCluster}
+                onClusterChange={setSelectedCluster}
+                hasDuplicates={hasDuplicates}
+                showDuplicates={showDuplicates}
+                onShowDuplicates={setShowDuplicates}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                totalImages={totalImages}
+                filteredCount={filteredCount}
+              />
+            </motion.div>
+          )}
+
+          {/* Loading State */}
+          {isLoading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center py-32"
+            >
+              <div className="relative">
+                <LoadingSpinner size="large" />
+                <motion.div
+                  className="absolute inset-0 rounded-full border-2 border-primary/20"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                 />
               </div>
-              <div className="min-w-[260px] md:min-w-[320px]">
-                <div className="bg-card/50 backdrop-blur-sm border rounded-xl p-6 flex flex-col gap-4">
-                  <div>
-                    <Input
-                      value={settings.directory}
-                      onChange={(e) =>
-                        setSettings((s) => ({
-                          ...s,
-                          directory: e.target.value,
-                        }))
-                      }
-                      placeholder="Directory path (e.g. /Users/yourname/Pictures)"
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={analyzeDirectory}
-                      variant="default"
-                      className="flex-1"
-                      disabled={isLoading || !isAbsolutePath}
-                    >
-                      {isLoading ? (
-                        <span className="flex items-center justify-center">
-                          <span className="animate-spin mr-2 w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-                          Analyzing...
-                        </span>
-                      ) : (
-                        "Analyze"
-                      )}
-                    </Button>
-                    <Button
-                      onClick={() => setIsSettingsOpen(true)}
-                      variant="outline"
-                      className="flex-shrink-0"
-                      type="button"
-                    >
-                      Settings
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 mt-2">
-              {isLoading && (
-                <span className="flex items-center text-xs text-muted-foreground">
-                  <span className="animate-spin mr-2 w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
-                  Analyzing images...
-                </span>
-              )}
-            </div>
-            {!isAbsolutePath && (
-              <div className="text-yellow-600 text-xs mt-2">
-                Please enter an absolute directory path (e.g.
-                /Users/yourname/Pictures)
-              </div>
-            )}
-            {showTip && (
-              <div className="text-blue-600 text-xs mt-2">
-                Tip: For faster analysis, increase <b>MAX_WORKERS</b> and{" "}
-                <b>BATCH_SIZE</b> in <code>wallpaper_analyzer.py</code>{" "}
-                (currently set to {process.env.NEXT_PUBLIC_M1_WORKERS || 32}{" "}
-                workers and batch size {process.env.NEXT_PUBLIC_M1_BATCH || 64}{" "}
-                for M1 Macs).
-              </div>
-            )}
-            {error && (
-              <div className="text-red-500 text-sm mt-2" role="alert">
-                {error}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="ml-2"
-                  onClick={analyzeDirectory}
-                >
-                  Retry
-                </Button>
-              </div>
-            )}
-          </div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <StatsBar
-              totalImages={totalImages}
-              filteredImages={filteredImages.length}
-              clusters={totalClusters}
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="mt-8 text-professional-muted text-lg"
+              >
+                Analyzing your images with AI...
+              </motion.p>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="mt-2 text-sm text-professional-muted opacity-60"
+              >
+                This may take a few moments
+              </motion.div>
+            </motion.div>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && hasAnalyzed && displayedImages.length === 0 && (
+            <EmptyState
+              title="No images found"
+              description="Try adjusting your filters or analyzing a different directory."
             />
-            <ImageMasonry images={filteredImages} isLoading={isLoading} />
-          </motion.div>
+          )}
+
+          {/* Images Grid */}
+          {!isLoading && displayedImages.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6 }}
+            >
+              <ImageMasonry
+                images={displayedImages}
+                onImageClick={setSelectedImage}
+              />
+
+              {/* Load More Trigger */}
+              {hasMore && (
+                <div
+                  ref={loadMoreRef}
+                  className="flex justify-center py-16"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 px-6 py-3 glass rounded-full border border-border/50"
+                  >
+                    <LoadingSpinner />
+                    <span className="text-sm text-professional-muted">Loading more images...</span>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* End Message */}
+              {!hasMore && displayedImages.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-16"
+                >
+                  <div className="inline-flex items-center gap-2 px-6 py-3 glass rounded-full border border-border/50">
+                    <div className="w-2 h-2 rounded-full bg-accent" />
+                    <span className="text-sm text-professional-muted">
+                      You&apos;ve reached the end of the collection
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
         </main>
 
+        {/* Settings Panel */}
         <SettingsPanel
           settings={settings}
           onSettingsChange={setSettings}
           open={isSettingsOpen}
           onOpenChange={setIsSettingsOpen}
         />
+
+        {/* Image Preview */}
+        <AnimatePresence>
+          {selectedImage && (
+            <ImagePreview
+              image={selectedImage}
+              onClose={() => setSelectedImage(null)}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </ThemeProvider>
   );

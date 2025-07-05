@@ -1,9 +1,7 @@
 # Wallpaper Analyzer V2
-# Concurrency: Uses eventlet (green threads) for async I/O and Flask-SocketIO, and ThreadPoolExecutor for CPU-bound image processing. This hybrid model is robust for I/O and parallel CPU workloads.
-# Configuration: All magic numbers and tunables are in the Config class below.
-
-import eventlet
-eventlet.monkey_patch()
+# Functional approach with JSON file system for per-picture data storage
+# Single-threaded processing with DBSCAN clustering
+# Mac-optimized with latest dependencies
 
 import os
 import logging
@@ -12,35 +10,46 @@ from PIL import Image
 import torch
 import torchvision.models as models
 import torchvision.transforms as transforms
-from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-import multiprocessing
 from functools import lru_cache
 from collections import defaultdict
-import sqlite3
 import json
 from datetime import datetime
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
-import flask
+from sklearn.cluster import DBSCAN
+import hashlib
+import pickle
+import base64
+import platform
+
+# Mac-specific optimizations
+if platform.system() == 'Darwin':
+    # Enable Mac-specific optimizations
+    os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+    # Use Metal Performance Shaders for better performance
+    if torch.backends.mps.is_available():
+        print("✅ MPS (Metal Performance Shaders) available for Mac optimization")
 
 # Configuration
 class Config:
+    # Device selection with Mac optimization
     DEVICE = torch.device("mps") if torch.backends.mps.is_available() else \
              torch.device("cuda") if torch.cuda.is_available() else \
              torch.device("cpu")
     
-    BATCH_SIZE = 128 if torch.backends.mps.is_available() else 64 if torch.cuda.is_available() else 16
-    MAX_WORKERS = 64 if torch.backends.mps.is_available() else multiprocessing.cpu_count()
-    IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif'}
+    # Optimized batch sizes for different devices
+    BATCH_SIZE = 256 if torch.backends.mps.is_available() else \
+                 128 if torch.cuda.is_available() else \
+                 32  # Increased for modern CPUs
+    
+    # Image formats supported
+    IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.webp', '.tiff'}
     DEFAULT_SIMILARITY_THRESHOLD = 0.85
     DEFAULT_AESTHETIC_THRESHOLD = 0.8
     
     # Clustering settings
-    MIN_CLUSTERS = 5
-    MAX_CLUSTERS = 10
-    CLUSTER_FEATURE_DIM = 2048  # ResNet50 feature dimension
+    DBSCAN_EPS = 0.3
+    DBSCAN_MIN_SAMPLES = 3
     
     # Flask settings
     HOST = '0.0.0.0'
@@ -48,14 +57,14 @@ class Config:
     DEBUG = False
     
     # Logging settings
-    ENABLE_APP_LOGGING = True  # Application logs
-    ENABLE_SOCKET_LOGGING = False  # Socket.IO/Engine.IO logs
+    ENABLE_APP_LOGGING = True
     
-    # Database settings
-    DB_PATH = 'analysis_cache.db'
-    # Magic numbers moved here
+    # JSON storage settings
+    CACHE_DIR = 'image_cache'
     MAX_HASH_CACHE = 2000
-    DUPLICATE_FEATURE_LIMIT = 1000
+    
+    # Mac-specific settings
+    USE_MPS_FALLBACK = True if platform.system() == 'Darwin' else False
 
 # Logging setup
 handlers = [logging.FileHandler('analyzed.log')]
@@ -69,619 +78,523 @@ logging.basicConfig(
 )
 logger = logging.getLogger('WallpaperAnalyzer')
 
-# Database initialization
-def init_db() -> None:
-    conn = sqlite3.connect(Config.DB_PATH)
-    c = conn.cursor()
-    # Per-image cache
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS images (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            directory TEXT,
-            path TEXT,
-            last_modified TIMESTAMP,
-            size INTEGER,
-            hash TEXT,
-            features BLOB,
-            aesthetic_score REAL,
-            analyzed_at TIMESTAMP,
-            other_metadata TEXT,
-            UNIQUE(directory, path, last_modified, size)
-        )
-    ''')
-    # Per-analysis run
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS analysis_runs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            directory TEXT,
-            params TEXT,
-            run_time TIMESTAMP,
-            result_summary TEXT
-        )
-    ''')
-    # Map images to analysis runs, clusters, etc.
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS image_analysis_map (
-            run_id INTEGER,
-            image_id INTEGER,
-            cluster_id INTEGER,
-            is_duplicate BOOLEAN,
-            is_low_aesthetic BOOLEAN,
-            FOREIGN KEY(run_id) REFERENCES analysis_runs(id),
-            FOREIGN KEY(image_id) REFERENCES images(id)
-        )
-    ''')
-    conn.commit()
-    conn.close()
+# Ensure cache directory exists
+os.makedirs(Config.CACHE_DIR, exist_ok=True)
 
-# Initialize database on startup
-init_db()
+# Global models (initialized once)
+feature_model = None
+aesthetic_model = None
+transform = None
 
-def ensure_unique_constraint():
-    """Ensure the unique constraint exists on the images table"""
-    conn = None
+def initialize_models():
+    """Initialize neural network models globally with Mac optimization"""
+    global feature_model, aesthetic_model, transform
+    
+    logger.info(f"Initializing models on device: {Config.DEVICE}")
+    
+    # Enhanced transform with better image quality
+    transform = transforms.Compose([
+        transforms.Resize((224, 224), antialias=True),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    
     try:
-        conn = sqlite3.connect(Config.DB_PATH)
-        c = conn.cursor()
+        # Use more modern and efficient models
+        # Feature extraction model - using EfficientNet for better performance
+        feature_model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1)
+        # Remove the classifier layer to get features
+        feature_model.classifier = torch.nn.Identity()
+        feature_model = feature_model.to(Config.DEVICE)
+        feature_model.eval()
         
-        # Check if the unique constraint exists
-        c.execute("PRAGMA table_info(images)")
-        columns = c.fetchall()
+        # Aesthetic evaluation model - using ResNet50 for better accuracy
+        aesthetic_model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+        num_features = aesthetic_model.fc.in_features
+        aesthetic_model.fc = torch.nn.Linear(num_features, 1)
+        aesthetic_model = aesthetic_model.to(Config.DEVICE)
+        aesthetic_model.eval()
         
-        # Check if we need to add the unique constraint
-        has_constraint = False
-        try:
-            c.execute("PRAGMA index_list(images)")
-            indexes = c.fetchall()
-            for index in indexes:
-                if 'sqlite_autoindex' in str(index) or 'directory_path_last_modified_size' in str(index):
-                    has_constraint = True
-                    break
-        except:
-            pass
+        logger.info("✅ Models initialized successfully with modern architectures")
         
-        if not has_constraint:
-            try:
-                # Add the unique constraint
-                c.execute('''
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_images_unique 
-                    ON images(directory, path, last_modified, size)
-                ''')
-                conn.commit()
-                logger.info("Added unique constraint to images table")
-            except Exception as e:
-                logger.warning(f"Could not add unique constraint: {e}")
     except Exception as e:
-        logger.error(f"Error ensuring unique constraint: {e}")
-    finally:
-        if conn:
-            conn.close()
+        logger.warning(f"Failed to load modern models, falling back to original models: {e}")
+        # Fallback to original models
+        feature_model = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1)
+        # Remove the classifier layer to get features
+        feature_model.classifier = torch.nn.Identity()
+        feature_model = feature_model.to(Config.DEVICE)
+        feature_model.eval()
+        
+        aesthetic_model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+        num_features = aesthetic_model.fc.in_features
+        aesthetic_model.fc = torch.nn.Linear(num_features, 1)
+        aesthetic_model = aesthetic_model.to(Config.DEVICE)
+        aesthetic_model.eval()
 
-# Ensure unique constraint exists
-ensure_unique_constraint()
+def get_image_hash(image_path: str) -> str:
+    """Calculate SHA256 hash of image file"""
+    try:
+        with open(image_path, 'rb') as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    except Exception as e:
+        logger.error(f"Error calculating hash for {image_path}: {e}")
+        return None
 
-def get_image_cache_entry(conn, directory: str, path: str, last_modified: float, size: int):
-    with conn:
-        c = conn.cursor()
-        c.execute('''
-            SELECT id, features, aesthetic_score FROM images
-            WHERE directory = ? AND path = ? AND last_modified = ? AND size = ?
-        ''', (directory, path, last_modified, size))
-        return c.fetchone()
+def get_cache_file_path(image_hash: str) -> str:
+    """Get the cache file path for an image hash"""
+    return os.path.join(Config.CACHE_DIR, f"{image_hash}.json")
 
-def upsert_image_cache_entry(conn, directory: str, path: str, last_modified: float, size: int, features, aesthetic_score):
-    c = conn.cursor()
-    c.execute('''
-        INSERT INTO images (directory, path, last_modified, size, features, aesthetic_score, analyzed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(directory, path, last_modified, size) DO UPDATE SET
-            features=excluded.features,
-            aesthetic_score=excluded.aesthetic_score,
-            analyzed_at=excluded.analyzed_at
-    ''', (directory, path, last_modified, size, features, aesthetic_score, datetime.now().isoformat()))
-    conn.commit()
+def load_cached_data(image_hash: str) -> dict:
+    """Load cached data for an image"""
+    cache_file = get_cache_file_path(image_hash)
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading cache for {image_hash}: {e}")
+    return {}
+
+def save_cached_data(image_hash: str, data: dict):
+    """Save data to cache for an image"""
+    cache_file = get_cache_file_path(image_hash)
+    try:
+        with open(cache_file, 'w') as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        logger.error(f"Error saving cache for {image_hash}: {e}")
+
+def update_cached_data(image_hash: str, updates: dict):
+    """Update specific fields in cached data"""
+    current_data = load_cached_data(image_hash)
+    current_data.update(updates)
+    current_data['last_updated'] = datetime.now().isoformat()
+    save_cached_data(image_hash, current_data)
+
+def cleanup_old_cache(max_age_days: int = 30):
+    """Clean up old cache files to prevent disk space issues"""
+    try:
+        cutoff_time = datetime.now().timestamp() - (max_age_days * 24 * 60 * 60)
+        cache_files = [f for f in os.listdir(Config.CACHE_DIR) if f.endswith('.json')]
+        
+        for cache_file in cache_files:
+            cache_path = os.path.join(Config.CACHE_DIR, cache_file)
+            if os.path.getmtime(cache_path) < cutoff_time:
+                os.remove(cache_path)
+                logger.info(f"Cleaned up old cache file: {cache_file}")
+    except Exception as e:
+        logger.warning(f"Error during cache cleanup: {e}")
+
+def calculate_perceptual_hash(image_path: str) -> bytes:
+    """Calculate perceptual hash of an image"""
+    try:
+        image = Image.open(image_path).convert('RGB')
+        image_tensor = transform(image).unsqueeze(0).to(Config.DEVICE)
+        with torch.no_grad():
+            features = feature_model(image_tensor)
+            # Handle different output shapes based on model type
+            if features.dim() == 4:  # (batch, channels, height, width)
+                features = torch.mean(features, dim=[2, 3])  # Global average pooling
+            elif features.dim() == 2:  # (batch, features)
+                features = features.squeeze(0)
+            else:
+                features = features.flatten()
+            return features.cpu().numpy().tobytes()
+    except Exception as e:
+        logger.error(f"Error calculating perceptual hash for {image_path}: {e}")
+        return None
+
+def process_single_image(image_path: str, process_type: str = 'features'):
+    """Process a single image for features or aesthetic scoring"""
+    try:
+        image = Image.open(image_path).convert('RGB')
+        image_tensor = transform(image).unsqueeze(0).to(Config.DEVICE)
+        
+        with torch.no_grad():
+            if process_type == 'features':
+                outputs = feature_model(image_tensor)
+                # Handle different output shapes based on model type
+                if outputs.dim() == 4:  # (batch, channels, height, width)
+                    outputs = torch.mean(outputs, dim=[2, 3])  # Global average pooling
+                elif outputs.dim() == 2:  # (batch, features)
+                    outputs = outputs.squeeze(0)
+                else:
+                    outputs = outputs.flatten()
+            else:  # aesthetic scoring
+                outputs = aesthetic_model(image_tensor)
+                outputs = torch.sigmoid(outputs).squeeze()
+            
+            result = outputs.cpu().numpy()
+            if result.ndim == 0:
+                result = float(result)
+            else:
+                result = result.tolist()
+            
+            return result
+    except Exception as e:
+        logger.error(f"Error processing image {image_path}: {e}")
+        return None
+
+def process_images_sequential(image_paths: list[str], process_type: str = 'features') -> dict:
+    """Process images sequentially (no multithreading)"""
+    results = {}
+    total = len(image_paths)
+    
+    for i, path in enumerate(image_paths):
+        logger.info(f"Processing {process_type} for image {i+1}/{total}: {os.path.basename(path)}")
+        result = process_single_image(path, process_type)
+        if result is not None:
+            results[path] = result
+    
+    logger.info(f"Completed {process_type} for {len(results)} images.")
+    return results
+
+def find_duplicates_sequential(image_paths: list[str], threshold: float = Config.DEFAULT_SIMILARITY_THRESHOLD) -> list[list[str]]:
+    """Find duplicate images using sequential processing"""
+    if not image_paths:
+        return []
+
+    # Phase 1: Hash-based grouping
+    image_hashes = defaultdict(list)
+    for path in image_paths:
+        hash_value = calculate_perceptual_hash(path)
+        if hash_value:
+            image_hashes[hash_value].append(path)
+
+    potential_duplicates = [paths for paths in image_hashes.values() if len(paths) > 1]
+    
+    # Phase 2: Feature-based comparison for remaining images
+    if len(image_paths) <= 1000:  # Limit for performance
+        features = process_images_sequential(image_paths, 'features')
+        
+        # Calculate similarity matrix
+        paths = list(features.keys())
+        if paths:
+            feature_matrix = np.stack([features[path] for path in paths])
+            feature_matrix = feature_matrix / np.linalg.norm(feature_matrix, axis=1, keepdims=True)
+            similarity_matrix = np.dot(feature_matrix, feature_matrix.T)
+            
+            # Find similar images
+            processed = set()
+            for i in range(len(paths)):
+                if i in processed:
+                    continue
+                
+                current_group = {paths[i]}
+                processed.add(i)
+                
+                for j in range(i + 1, len(paths)):
+                    if j in processed:
+                        continue
+                    if similarity_matrix[i, j] > threshold:
+                        current_group.add(paths[j])
+                        processed.add(j)
+                
+                if len(current_group) > 1:
+                    potential_duplicates.append(list(current_group))
+
+    return potential_duplicates
+
+def extract_features_sequential(image_paths: list[str]) -> tuple[np.ndarray, list[str]]:
+    """Extract features from images sequentially"""
+    features = []
+    valid_paths = []
+    
+    for path in image_paths:
+        try:
+            feature = process_single_image(path, 'features')
+            if feature is not None:
+                features.append(feature)
+                valid_paths.append(path)
+        except Exception as e:
+            logger.error(f"Error extracting features for {path}: {e}")
+            continue
+    
+    return np.array(features), valid_paths
+
+def cluster_images_dbscan(image_paths: list[str]) -> tuple[dict, dict]:
+    """Cluster images using DBSCAN"""
+    features, valid_paths = extract_features_sequential(image_paths)
+    
+    if len(features) < Config.DBSCAN_MIN_SAMPLES:
+        return {0: {"paths": valid_paths, "size": len(valid_paths)}}, {}
+    
+    # Apply DBSCAN clustering
+    dbscan = DBSCAN(eps=Config.DBSCAN_EPS, min_samples=Config.DBSCAN_MIN_SAMPLES)
+    cluster_labels = dbscan.fit_predict(features)
+    
+    # Create cluster information
+    clusters = {}
+    unique_labels = np.unique(cluster_labels)
+    
+    for label in unique_labels:
+        if label == -1:  # Noise points
+            continue
+            
+        cluster_indices = np.where(cluster_labels == label)[0]
+        cluster_paths = [valid_paths[idx] for idx in cluster_indices]
+        cluster_features = features[cluster_indices]
+        
+        # Find representative image (closest to cluster center)
+        center = np.mean(cluster_features, axis=0)
+        distances = np.linalg.norm(cluster_features - center, axis=1)
+        representative_idx = np.argmin(distances)
+        
+        clusters[label] = {
+            "size": len(cluster_paths),
+            "representative": cluster_paths[representative_idx],
+            "paths": cluster_paths
+        }
+    
+    # Handle noise points as individual clusters
+    noise_indices = np.where(cluster_labels == -1)[0]
+    for i, idx in enumerate(noise_indices):
+        noise_label = f"noise_{i}"
+        clusters[noise_label] = {
+            "size": 1,
+            "representative": valid_paths[idx],
+            "paths": [valid_paths[idx]]
+        }
+    
+    return clusters, {}
+
+def get_image_paths(directory: str, recursive: bool = False) -> list[str]:
+    """Get all image paths in a directory"""
+    image_paths = []
+    
+    if recursive:
+        for root, _, files in os.walk(directory):
+            for file in files:
+                if os.path.splitext(file.lower())[1] in Config.IMAGE_EXTENSIONS:
+                    image_paths.append(os.path.join(root, file))
+    else:
+        for file in os.listdir(directory):
+            if os.path.splitext(file.lower())[1] in Config.IMAGE_EXTENSIONS:
+                image_paths.append(os.path.join(directory, file))
+    
+    return image_paths
+
+def analyze_directory(directory: str, similarity_threshold: float = Config.DEFAULT_SIMILARITY_THRESHOLD,
+                     aesthetic_threshold: float = Config.DEFAULT_AESTHETIC_THRESHOLD, recursive: bool = False,
+                     skip_duplicates: bool = False, skip_aesthetics: bool = False, limit: int = 0) -> dict:
+    """Analyze a directory of images using functional approach"""
+    import time
+    t0 = time.time()
+    
+    logger.info(f"Starting analysis for {directory}")
+    
+    # 1. Load image paths
+    logger.info("Loading image paths...")
+    image_paths = get_image_paths(directory, recursive)
+    if limit and limit > 0:
+        image_paths = image_paths[:limit]
+    logger.info(f"Loaded {len(image_paths)} image paths.")
+    
+    # Check for directory-level cache
+    directory_hash = hashlib.sha256(f"{directory}_{recursive}_{limit}_{similarity_threshold}_{aesthetic_threshold}".encode()).hexdigest()
+    directory_cache_file = os.path.join(Config.CACHE_DIR, f"dir_{directory_hash}.json")
+    
+    if os.path.exists(directory_cache_file):
+        try:
+            with open(directory_cache_file, 'r') as f:
+                cached_analysis = json.load(f)
+            
+            # Check if all images in the cached analysis still exist
+            cached_paths = set(cached_analysis.get('image_paths', []))
+            current_paths = set(image_paths)
+            
+            if cached_paths == current_paths:
+                logger.info("✅ Using cached analysis results")
+                logger.info(f"Cache contains {len(cached_analysis['results'].get('duplicates', []))} duplicate groups and {len(cached_analysis['results'].get('clusters', {}))} clusters")
+                return cached_analysis['results']
+            else:
+                logger.info(f"Cache outdated - {len(cached_paths - current_paths)} images removed, {len(current_paths - cached_paths)} images added")
+        except Exception as e:
+            logger.warning(f"Error reading directory cache: {e}")
+    
+    # 2. Check cache and process new images
+    cached_features = {}
+    cached_scores = {}
+    to_process = []
+    
+    for path in image_paths:
+        image_hash = get_image_hash(path)
+        if image_hash:
+            cached_data = load_cached_data(image_hash)
+            
+            if 'features' in cached_data and 'aesthetic_score' in cached_data:
+                cached_features[path] = cached_data['features']
+                cached_scores[path] = cached_data['aesthetic_score']
+            else:
+                to_process.append((path, image_hash))
+    
+    # 3. Process new images
+    features = {}
+    scores = {}
+    if to_process:
+        logger.info(f"Processing {len(to_process)} new images...")
+        paths = [p[0] for p in to_process]
+        
+        # Feature extraction
+        new_features = process_images_sequential(paths, 'features')
+        # Aesthetic scoring
+        new_scores = process_images_sequential(paths, 'aesthetic')
+        
+        # Store in cache
+        for (path, image_hash) in to_process:
+            feat = new_features.get(path)
+            score = new_scores.get(path)
+            if feat is not None:
+                features[path] = feat
+            if score is not None:
+                scores[path] = score
+            
+            # Save to cache
+            cache_data = {
+                'path': path,
+                'features': feat,
+                'aesthetic_score': score,
+                'last_updated': datetime.now().isoformat()
+            }
+            save_cached_data(image_hash, cache_data)
+    
+    # Merge cached and new
+    features.update(cached_features)
+    scores.update(cached_scores)
+    
+    t1 = time.time()
+    
+    # 4. Duplicate detection
+    logger.info("Starting duplicate detection...")
+    duplicates = []
+    if not skip_duplicates:
+        duplicates = find_duplicates_sequential(image_paths, threshold=similarity_threshold)
+    logger.info("Duplicate detection complete.")
+    
+    t2 = time.time()
+    
+    # 5. Clustering
+    logger.info("Starting clustering...")
+    clusters = {}
+    cluster_features = {}
+    if not skip_aesthetics:
+        cluster_result = cluster_images_dbscan(image_paths)
+        if isinstance(cluster_result, tuple):
+            clusters, cluster_features = cluster_result
+        else:
+            clusters = cluster_result
+    logger.info("Clustering complete.")
+    
+    t3 = time.time()
+    
+    # 6. Aesthetic scoring (already done above)
+    aesthetic_scores = scores
+    logger.info("Aesthetic scoring complete.")
+    
+    t4 = time.time()
+    
+    logger.info(f"Timing: image loading: {t1-t0:.2f}s, duplicate detection: {t2-t1:.2f}s, clustering: {t3-t2:.2f}s, total: {t4-t0:.2f}s")
+    
+    # Prepare results
+    results = {
+        'directory': directory,
+        'total_images': len(image_paths),
+        'processed_images': len(image_paths),
+        'duplicates': duplicates,
+        'aesthetic_scores': aesthetic_scores,
+        'clusters': clusters,
+        'cluster_features': cluster_features,
+        'low_aesthetic': [path for path, score in aesthetic_scores.items() if score < aesthetic_threshold],
+    }
+    
+    # Save directory-level cache
+    try:
+        directory_cache_data = {
+            'image_paths': image_paths,
+            'analysis_params': {
+                'similarity_threshold': similarity_threshold,
+                'aesthetic_threshold': aesthetic_threshold,
+                'recursive': recursive,
+                'limit': limit
+            },
+            'results': results,
+            'timestamp': datetime.now().isoformat()
+        }
+        with open(directory_cache_file, 'w') as f:
+            json.dump(directory_cache_data, f, indent=2)
+        logger.info(f"✅ Saved directory analysis cache: {directory_cache_file}")
+    except Exception as e:
+        logger.warning(f"Failed to save directory cache: {e}")
+    
+    return results
+
+def format_results_for_frontend(results: dict) -> dict:
+    """Format analysis results for frontend display"""
+    try:
+        images = []
+        clusters = []
+        duplicates = []
+        low_aesthetic = []
+        
+        # Process clusters
+        for cluster_id, cluster_data in results['clusters'].items():
+            clusters.append({
+                'id': cluster_id,
+                'size': cluster_data['size'],
+                'representative': cluster_data['representative'],
+                'paths': cluster_data['paths']
+            })
+            
+            # Add images from this cluster
+            for path in cluster_data['paths']:
+                images.append({
+                    'path': path,
+                    'cluster': cluster_id,
+                    'cluster_size': cluster_data['size'],
+                    'is_duplicate': any(path in group for group in results['duplicates']),
+                    'is_low_aesthetic': results['aesthetic_scores'].get(path, 0) < Config.DEFAULT_AESTHETIC_THRESHOLD,
+                    'aesthetic_score': results['aesthetic_scores'].get(path, 0)
+                })
+        
+        # Process duplicates
+        for group in results['duplicates']:
+            duplicates.extend(group)
+        
+        # Process low aesthetic images
+        low_aesthetic = results['low_aesthetic']
+        
+        return {
+            'images': images,
+            'clusters': clusters,
+            'duplicates': duplicates,
+            'low_aesthetic': low_aesthetic
+        }
+    except Exception as e:
+        logger.error(f"Error formatting results: {str(e)}")
+        return {
+            'images': [],
+            'clusters': [],
+            'duplicates': [],
+            'low_aesthetic': []
+        }
 
 # Flask app initialization
 app = Flask(__name__)
 CORS(app)
 
-# Global state
-analysis_results = {}
+# Initialize models on startup
+initialize_models()
 
-class ImageProcessor:
-    def __init__(self) -> None:
-        self.device = Config.DEVICE
-        self.transform = transforms.Compose([
-            transforms.Resize((224, 224), antialias=True),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-        self._initialize_models()
-        
-    def _initialize_models(self) -> None:
-        """Initialize neural network models"""
-        logger.info(f"Initializing models on device: {self.device}")
-        
-        # Feature extraction model
-        self.feature_model = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1)
-        self.feature_model = self.feature_model.to(self.device)
-        self.feature_model.eval()
-        
-        # Aesthetic evaluation model
-        self.aesthetic_model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
-        num_features = self.aesthetic_model.fc.in_features
-        self.aesthetic_model.fc = torch.nn.Linear(num_features, 1)
-        self.aesthetic_model = self.aesthetic_model.to(self.device)
-        self.aesthetic_model.eval()
+# Clean up old cache files
+cleanup_old_cache()
 
-    @lru_cache(maxsize=Config.MAX_HASH_CACHE)
-    def calculate_hash(self, image_path: str) -> bytes | None:
-        """Calculate perceptual hash of an image"""
-        try:
-            image = Image.open(image_path).convert('RGB')
-            image = self.transform(image).unsqueeze(0).to(self.device)
-            with torch.no_grad():
-                features = self.feature_model.features(image)
-                features = torch.mean(features, dim=[2, 3])
-                return features.cpu().numpy().tobytes()
-        except Exception as e:
-            logger.error(f"Error calculating hash for {image_path}: {e}")
-            return None
-
-    def process_batch(self, image_paths: list[str], process_type: str = 'features', progress_callback: callable = None) -> dict:
-        results = {}
-        batch_size = Config.BATCH_SIZE
-        total = len(image_paths)
-        for i in range(0, total, batch_size):
-            batch_paths = image_paths[i:i+batch_size]
-            logger.info(f"Processing batch {i//batch_size+1} ({len(batch_paths)} images) [{i+1}-{min(i+batch_size, total)} / {total}] for {process_type}")
-            batch_images = []
-            valid_paths = []
-            
-            for path in batch_paths:
-                try:
-                    image = Image.open(path).convert('RGB')
-                    image = self.transform(image)
-                    batch_images.append(image)
-                    valid_paths.append(path)
-                except Exception as e:
-                    logger.error(f"Error loading image {path}: {e}")
-                    continue
-            
-            if batch_images:
-                try:
-                    batch_tensor = torch.stack(batch_images).to(self.device)
-                    with torch.no_grad():
-                        if process_type == 'features':
-                            outputs = self.feature_model.features(batch_tensor)
-                            outputs = torch.mean(outputs, dim=[2, 3])
-                        else:  # aesthetic scoring
-                            outputs = self.aesthetic_model(batch_tensor)
-                            outputs = torch.sigmoid(outputs).squeeze()
-                        
-                        outputs = outputs.cpu().numpy()
-                        if outputs.ndim == 0:
-                            outputs = np.array([outputs])
-                        
-                        for path, output in zip(valid_paths, outputs):
-                            # Convert NumPy values to Python types
-                            if isinstance(output, np.ndarray):
-                                results[path] = output.tolist()
-                            else:
-                                results[path] = float(output)
-                        
-                except Exception as e:
-                    logger.error(f"Error processing batch: {e}")
-                finally:
-                    del batch_tensor
-                    del batch_images
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
-                    elif torch.backends.mps.is_available():
-                        torch.mps.empty_cache()
-            
-            if progress_callback:
-                progress_callback(min(i+batch_size, total), total)
-        
-        logger.info(f"Completed {process_type} for {total} images.")
-        return results
-
-class DuplicateDetector:
-    def __init__(self, image_processor: ImageProcessor) -> None:
-        self.image_processor = image_processor
-
-    def find_duplicates(self, image_paths: list[str], threshold: float = Config.DEFAULT_SIMILARITY_THRESHOLD) -> list[list[str]]:
-        """Find duplicate images using perceptual hashing and feature comparison"""
-        if not image_paths:
-            return []
-
-        # Phase 1: Hash-based grouping
-        image_hashes = defaultdict(list)
-        with ThreadPoolExecutor(max_workers=Config.MAX_WORKERS) as executor:
-            futures = [executor.submit(self.image_processor.calculate_hash, path) for path in image_paths]
-            
-            for path, future in zip(image_paths, futures):
-                try:
-                    hash_value = future.result()
-                    if hash_value:
-                        image_hashes[hash_value].append(path)
-                except Exception as e:
-                    logger.error(f"Error processing hash: {e}")
-
-        potential_duplicates = [paths for paths in image_hashes.values() if len(paths) > 1]
-        
-        # Phase 2: Feature-based comparison for remaining images
-        if len(image_paths) <= Config.DUPLICATE_FEATURE_LIMIT:
-            features = {}
-            for i in range(0, len(image_paths), Config.BATCH_SIZE):
-                batch = image_paths[i:i + Config.BATCH_SIZE]
-                batch_features = self.image_processor.process_batch(batch, 'features')
-                features.update(batch_features)
-            
-            # Calculate similarity matrix
-            paths = list(features.keys())
-            if paths:
-                feature_matrix = np.stack([features[path] for path in paths])
-                feature_matrix = feature_matrix / np.linalg.norm(feature_matrix, axis=1, keepdims=True)
-                similarity_matrix = np.dot(feature_matrix, feature_matrix.T)
-                
-                # Find similar images
-                processed = set()
-                for i in range(len(paths)):
-                    if i in processed:
-                        continue
-                    
-                    current_group = {paths[i]}
-                    processed.add(i)
-                    
-                    for j in range(i + 1, len(paths)):
-                        if j in processed:
-                            continue
-                        if similarity_matrix[i, j] > threshold:
-                            current_group.add(paths[j])
-                            processed.add(j)
-                    
-                    if len(current_group) > 1:
-                        potential_duplicates.append(list(current_group))
-
-        return potential_duplicates
-
-class ImageClusterer:
-    def __init__(self, image_processor: ImageProcessor) -> None:
-        self.image_processor = image_processor
-        self.device = Config.DEVICE
-        self.transform = transforms.Compose([
-            transforms.Resize((224, 224), antialias=True),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-        self._initialize_model()
-        
-    def _initialize_model(self) -> None:
-        """Initialize ResNet50 model for feature extraction"""
-        self.model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
-        # Remove the final classification layer
-        self.model = torch.nn.Sequential(*list(self.model.children())[:-1])
-        self.model = self.model.to(self.device)
-        self.model.eval()
-    
-    def extract_features(self, image_paths: list[str]) -> tuple[np.ndarray, list[str]]:
-        """Extract features from a batch of images"""
-        features = []
-        valid_paths = []
-        
-        for path in image_paths:
-            try:
-                image = Image.open(path).convert('RGB')
-                image = self.transform(image).unsqueeze(0).to(self.device)
-                with torch.no_grad():
-                    feature = self.model(image)
-                    feature = feature.squeeze().cpu().numpy()
-                    features.append(feature)
-                    valid_paths.append(path)
-            except Exception as e:
-                logger.error(f"Error extracting features for {path}: {e}")
-                continue
-        
-        return np.array(features), valid_paths
-    
-    def find_optimal_clusters(self, features: np.ndarray) -> int:
-        """Find optimal number of clusters using silhouette analysis"""
-        best_score = -1
-        best_n_clusters = Config.MIN_CLUSTERS
-        
-        for n_clusters in range(Config.MIN_CLUSTERS, min(Config.MAX_CLUSTERS + 1, len(features))):
-            kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-            cluster_labels = kmeans.fit_predict(features)
-            
-            if len(np.unique(cluster_labels)) > 1:
-                score = silhouette_score(features, cluster_labels)
-                if score > best_score:
-                    best_score = score
-                    best_n_clusters = n_clusters
-        
-        return best_n_clusters
-    
-    def cluster_images(self, image_paths: list[str]) -> tuple[dict, dict]:
-        """Cluster images based on their features"""
-        features, valid_paths = self.extract_features(image_paths)
-        
-        if len(features) < Config.MIN_CLUSTERS:
-            return {0: {"paths": valid_paths, "size": len(valid_paths)}}, {}
-        
-        n_clusters = self.find_optimal_clusters(features)
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-        cluster_labels = kmeans.fit_predict(features)
-        
-        # Create cluster information
-        clusters = {}
-        for i in range(n_clusters):
-            cluster_indices = np.where(cluster_labels == i)[0]
-            cluster_paths = [valid_paths[idx] for idx in cluster_indices]
-            cluster_features = features[cluster_indices]
-            
-            # Find representative image (closest to cluster center)
-            center = kmeans.cluster_centers_[i]
-            distances = np.linalg.norm(cluster_features - center, axis=1)
-            representative_idx = np.argmin(distances)
-            
-            clusters[i] = {
-                "size": len(cluster_paths),
-                "representative": cluster_paths[representative_idx],
-                "paths": cluster_paths
-            }
-        
-        return clusters, {}
-
-class WallpaperAnalyzer:
-    def __init__(self) -> None:
-        self.image_processor = ImageProcessor()
-        self.duplicate_detector = DuplicateDetector(self.image_processor)
-        self.image_clusterer = ImageClusterer(self.image_processor)
-
-    def analyze_directory(self, directory: str, similarity_threshold: float = Config.DEFAULT_SIMILARITY_THRESHOLD,
-                         aesthetic_threshold: float = Config.DEFAULT_AESTHETIC_THRESHOLD, recursive: bool = False,
-                         skip_duplicates: bool = False, skip_aesthetics: bool = False, limit: int = 0) -> dict:
-        import time
-        t0 = time.time()
-        total_steps = 5
-        current_step = 0
-        logger.info(f"Starting analysis for {directory}")
-        # 1. Load image paths
-        logger.info("Loading image paths...")
-        image_paths = self._get_image_paths(directory, recursive)
-        if limit and limit > 0:
-            image_paths = image_paths[:limit]
-        logger.info(f"Loaded {len(image_paths)} image paths.")
-        # Per-image cache check
-        conn = sqlite3.connect(Config.DB_PATH)
-        cached_features = {}
-        cached_scores = {}
-        to_process = []
-        for path in image_paths:
-            try:
-                stat = os.stat(path)
-                entry = get_image_cache_entry(conn, directory, path, stat.st_mtime, stat.st_size)
-                if entry and entry[1] is not None:
-                    # features is a BLOB, decode as needed
-                    cached_features[path] = np.frombuffer(entry[1], dtype=np.float32)
-                    if entry[2] is not None:
-                        cached_scores[path] = entry[2]
-                else:
-                    to_process.append((path, stat.st_mtime, stat.st_size))
-            except Exception as e:
-                logger.error(f"Error checking cache for {path}: {e}")
-                to_process.append((path, 0, 0))
-        # Only process new/changed images
-        features = {}
-        scores = {}
-        if to_process:
-            logger.info(f"Processing {len(to_process)} new/changed images...")
-            paths = [p[0] for p in to_process]
-            # Feature extraction
-            new_features = self.image_processor.process_batch(paths, process_type='features')
-            # Aesthetic scoring
-            new_scores = self.image_processor.process_batch(paths, process_type='aesthetic')
-            # Store in DB
-            for i, (path, mtime, size) in enumerate(to_process):
-                feat = new_features.get(path)
-                score = new_scores.get(path)
-                if feat is not None:
-                    features[path] = feat
-                if score is not None:
-                    scores[path] = score
-                upsert_image_cache_entry(conn, directory, path, mtime, size,
-                    np.array(feat, dtype=np.float32).tobytes() if feat is not None else None,
-                    float(score) if score is not None else None)
-        # Merge cached and new
-        features.update(cached_features)
-        scores.update(cached_scores)
-        conn.close()
-        current_step += 1
-        t1 = time.time()
-        # 2. Feature extraction
-        logger.info("Starting feature extraction...")
-        features = None
-        if not skip_aesthetics or not skip_duplicates:
-            features = self.image_processor.process_batch(
-                image_paths,
-                process_type='features'
-            )
-        logger.info("Feature extraction complete.")
-        current_step += 1
-        t2 = time.time()
-        # 3. Duplicate detection
-        logger.info("Starting duplicate detection...")
-        duplicates = []
-        if not skip_duplicates:
-            duplicates = self.duplicate_detector.find_duplicates(image_paths, threshold=similarity_threshold)
-        logger.info("Duplicate detection complete.")
-        current_step += 1
-        t3 = time.time()
-        # 4. Clustering
-        logger.info("Starting clustering...")
-        clusters = {}
-        cluster_features = {}
-        if not skip_aesthetics:
-            cluster_result = self.image_clusterer.cluster_images(image_paths)
-            if isinstance(cluster_result, tuple):
-                clusters, cluster_features = cluster_result
-            else:
-                clusters = cluster_result
-        logger.info("Clustering complete.")
-        current_step += 1
-        t4 = time.time()
-        # 5. Aesthetic scoring
-        logger.info("Starting aesthetic scoring...")
-        aesthetic_scores = {}
-        if not skip_aesthetics:
-            # Compute aesthetic scores for all images
-            try:
-                scores = self.image_processor.process_batch(
-                    image_paths,
-                    process_type='aesthetic'
-                )
-                # scores is a dict: {path: score}
-                for path, score in scores.items():
-                    # Clamp score to [0, 1] and convert to float
-                    try:
-                        s = float(score)
-                        s = max(0.0, min(1.0, s))
-                        aesthetic_scores[path] = s
-                    except Exception:
-                        continue
-            except Exception as e:
-                logger.error(f"Error during aesthetic scoring: {e}")
-        logger.info("Aesthetic scoring complete.")
-        current_step += 1
-        t5 = time.time()
-        logger.info(f"Timing: image loading: {t1-t0:.2f}s, feature extraction: {t2-t1:.2f}s, duplicate detection: {t3-t2:.2f}s, clustering: {t4-t3:.2f}s, total: {t5-t0:.2f}s")
-        
-        # After all analysis steps (duplicates, clusters, scores) are complete:
-        # Create new database connection for storing results
-        conn = sqlite3.connect(Config.DB_PATH)
-        try:
-            # Insert analysis run
-            result_summary = {
-                'duplicates': duplicates,
-                'clusters': clusters,
-                'aesthetic_scores': aesthetic_scores
-            }
-            run_id = insert_analysis_run(conn, directory, {
-                'similarity_threshold': similarity_threshold,
-                'aesthetic_threshold': aesthetic_threshold,
-                'recursive': recursive,
-                'skip_duplicates': skip_duplicates,
-                'skip_aesthetics': skip_aesthetics,
-                'limit': limit
-            }, result_summary)
-            # Map images to this run
-            for path in image_paths:
-                try:
-                    stat = os.stat(path)
-                    image_id = get_image_id(conn, directory, path, stat.st_mtime, stat.st_size)
-                    if image_id is None:
-                        continue
-                    # Find cluster_id
-                    cluster_id = -1
-                    for cid, cdata in clusters.items():
-                        if 'paths' in cdata and path in cdata['paths']:
-                            cluster_id = cid
-                            break
-                    # Is duplicate?
-                    is_dup = any(path in group for group in duplicates)
-                    # Is low aesthetic?
-                    is_low = False
-                    if path in aesthetic_scores:
-                        is_low = aesthetic_scores[path] < aesthetic_threshold
-                    insert_image_analysis_map(conn, run_id, image_id, cluster_id, is_dup, is_low)
-                except Exception as e:
-                    logger.error(f"Error mapping image to analysis run: {e}")
-        finally:
-            conn.close()
-        # Always return a results dictionary
-        return {
-            'directory': directory,
-            'total_images': len(image_paths),
-            'processed_images': len(image_paths),
-            'duplicates': duplicates,
-            'aesthetic_scores': aesthetic_scores,
-            'clusters': clusters,
-            'cluster_features': cluster_features,
-            'low_aesthetic': [],
-        }
-
-    def _get_image_paths(self, directory: str, recursive: bool = False) -> list[str]:
-        """Get all image paths in a directory"""
-        image_paths = []
-        
-        if recursive:
-            for root, _, files in os.walk(directory):
-                for file in files:
-                    if os.path.splitext(file.lower())[1] in Config.IMAGE_EXTENSIONS:
-                        image_paths.append(os.path.join(root, file))
-        else:
-            for file in os.listdir(directory):
-                if os.path.splitext(file.lower())[1] in Config.IMAGE_EXTENSIONS:
-                    image_paths.append(os.path.join(directory, file))
-        
-        return image_paths
-
-    def format_results_for_frontend(self, directory: str, params: dict) -> dict:
-        """Format analysis results for frontend display using the new cache schema"""
-        conn = None
-        try:
-            conn = sqlite3.connect(Config.DB_PATH)
-            run_id = get_latest_run_id(conn, directory, params)
-            if not run_id:
-                return {'images': [], 'clusters': [], 'duplicates': [], 'low_aesthetic': []}
-            rows = get_run_results(conn, run_id)
-            clusters_count = get_run_clusters(conn, run_id)
-            images = []
-            clusters = {}
-            duplicates = []
-            low_aesthetic = []
-            for path, aesthetic_score, cluster_id, is_duplicate, is_low_aesthetic in rows:
-                images.append({
-                    'path': path,
-                    'cluster': cluster_id,
-                    'cluster_size': clusters_count.get(cluster_id, 0),
-                    'is_duplicate': bool(is_duplicate),
-                    'is_low_aesthetic': bool(is_low_aesthetic),
-                    'aesthetic_score': aesthetic_score
-                })
-                if cluster_id not in clusters:
-                    clusters[cluster_id] = {'id': cluster_id, 'paths': [], 'size': clusters_count.get(cluster_id, 0)}
-                clusters[cluster_id]['paths'].append(path)
-                if is_duplicate:
-                    duplicates.append(path)
-                if is_low_aesthetic:
-                    low_aesthetic.append(path)
-            return {
-                'images': images,
-                'clusters': list(clusters.values()),
-                'duplicates': duplicates,
-                'low_aesthetic': low_aesthetic
-            }
-        except Exception as e:
-            logger.error(f"Error formatting results: {str(e)}")
-            return {
-                'images': [],
-                'clusters': [],
-                'duplicates': [],
-                'low_aesthetic': []
-            }
-        finally:
-            if conn:
-                conn.close()
-
-# Flask routes
 @app.route('/')
-def index() -> 'flask.Response':
+def index():
     return send_file('index.html')
 
 @app.route('/api/analyze', methods=['POST'])
-def analyze() -> 'flask.Response':
+def analyze():
     try:
         data = request.get_json()
         directory = data.get('directory')
@@ -691,16 +604,15 @@ def analyze() -> 'flask.Response':
             'similarity_threshold': float(data.get('similarity_threshold', Config.DEFAULT_SIMILARITY_THRESHOLD)),
             'aesthetic_threshold': float(data.get('aesthetic_threshold', Config.DEFAULT_AESTHETIC_THRESHOLD)),
             'recursive': bool(data.get('recursive', True)),
-            'skip_duplicates': bool(data.get('skip_duplicates', True)),
-            'skip_aesthetics': bool(data.get('skip_aesthetics', True)),
+            'skip_duplicates': bool(data.get('skip_duplicates', False)),
+            'skip_aesthetics': bool(data.get('skip_aesthetics', False)),
             'limit': int(data.get('limit', 0))
         }
         logger.info(f"Analysis parameters: {params}")
 
         # Perform analysis
         logger.info("Starting new analysis")
-        analyzer = WallpaperAnalyzer()
-        results = analyzer.analyze_directory(
+        results = analyze_directory(
             directory,
             similarity_threshold=params['similarity_threshold'],
             aesthetic_threshold=params['aesthetic_threshold'],
@@ -711,7 +623,7 @@ def analyze() -> 'flask.Response':
         )
         logger.info("Analysis completed")
 
-        formatted_results = analyzer.format_results_for_frontend(directory, params)
+        formatted_results = format_results_for_frontend(results)
         logger.info(f"Returning {len(formatted_results['images'])} images")
         
         response = {
@@ -729,7 +641,7 @@ def analyze() -> 'flask.Response':
         }), 500
 
 @app.route('/api/image')
-def serve_image() -> 'flask.Response':
+def serve_image():
     try:
         image_path = request.args.get('path')
         if not image_path or not os.path.exists(image_path):
@@ -740,88 +652,54 @@ def serve_image() -> 'flask.Response':
         logger.error(f"Error serving image: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/results/<path:directory>')
-def get_results(directory: str) -> 'flask.Response':
+@app.route('/api/update_aesthetic', methods=['POST'])
+def update_aesthetic():
+    """Update aesthetic score for an image"""
     try:
-        params = {
-            'similarity_threshold': Config.DEFAULT_SIMILARITY_THRESHOLD,
-            'aesthetic_threshold': Config.DEFAULT_AESTHETIC_THRESHOLD,
-            'recursive': True,
-            'skip_duplicates': False,
-            'skip_aesthetics': False,
-            'limit': 0
-        }
-        analyzer = WallpaperAnalyzer()
-        formatted_results = analyzer.format_results_for_frontend(directory, params)
-        if not formatted_results['images']:
-            return jsonify({'error': 'Results not found'}), 404
-        return jsonify({'success': True, 'images': formatted_results['images']})
+        data = request.get_json()
+        image_path = data.get('path')
+        new_score = float(data.get('aesthetic_score'))
+        
+        image_hash = get_image_hash(image_path)
+        if image_hash:
+            update_cached_data(image_hash, {'aesthetic_score': new_score})
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Could not calculate image hash'}), 400
+            
     except Exception as e:
-        logger.error(f"Error getting results: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error updating aesthetic score: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-def insert_analysis_run(conn, directory: str, params: dict, result_summary: dict) -> int:
-    c = conn.cursor()
-    c.execute('''
-        INSERT INTO analysis_runs (directory, params, run_time, result_summary)
-        VALUES (?, ?, ?, ?)
-    ''', (directory, json.dumps(params), datetime.now().isoformat(), json.dumps(result_summary)))
-    conn.commit()
-    return c.lastrowid
+@app.route('/api/update_duplicate', methods=['POST'])
+def update_duplicate():
+    """Update duplicate status for an image"""
+    try:
+        data = request.get_json()
+        image_path = data.get('path')
+        is_duplicate = bool(data.get('is_duplicate'))
+        
+        image_hash = get_image_hash(image_path)
+        if image_hash:
+            update_cached_data(image_hash, {'is_duplicate': is_duplicate})
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Could not calculate image hash'}), 400
+            
+    except Exception as e:
+        logger.error(f"Error updating duplicate status: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-def get_image_id(conn, directory: str, path: str, last_modified: float, size: int) -> int | None:
-    c = conn.cursor()
-    c.execute('''
-        SELECT id FROM images WHERE directory = ? AND path = ? AND last_modified = ? AND size = ?
-    ''', (directory, path, last_modified, size))
-    row = c.fetchone()
-    return row[0] if row else None
-
-def insert_image_analysis_map(conn, run_id: int, image_id: int, cluster_id: int, is_duplicate: bool, is_low_aesthetic: bool):
-    c = conn.cursor()
-    c.execute('''
-        INSERT INTO image_analysis_map (run_id, image_id, cluster_id, is_duplicate, is_low_aesthetic)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (run_id, image_id, cluster_id, int(is_duplicate), int(is_low_aesthetic)))
-    conn.commit()
-
-def get_latest_run_id(conn, directory: str, params: dict) -> int | None:
-    c = conn.cursor()
-    c.execute('''
-        SELECT id FROM analysis_runs WHERE directory = ? AND params = ? ORDER BY run_time DESC LIMIT 1
-    ''', (directory, json.dumps(params)))
-    row = c.fetchone()
-    return row[0] if row else None
-
-def get_run_results(conn, run_id: int):
-    c = conn.cursor()
-    # Join images and image_analysis_map for this run
-    c.execute('''
-        SELECT images.path, images.aesthetic_score, image_analysis_map.cluster_id, image_analysis_map.is_duplicate, image_analysis_map.is_low_aesthetic
-        FROM image_analysis_map
-        JOIN images ON image_analysis_map.image_id = images.id
-        WHERE image_analysis_map.run_id = ?
-    ''', (run_id,))
-    return c.fetchall()
-
-def get_run_clusters(conn, run_id: int):
-    c = conn.cursor()
-    c.execute('''
-        SELECT cluster_id, COUNT(*) FROM image_analysis_map WHERE run_id = ? GROUP BY cluster_id
-    ''', (run_id,))
-    return {row[0]: row[1] for row in c.fetchall()}
-
-def main() -> None:
+def main():
     """Main entry point for the application"""
     try:
-        with app.app_context():
-            print(f"Server running at http://localhost:{Config.PORT}")
-            app.run(
-                host=Config.HOST,
-                port=Config.PORT,
-                debug=Config.DEBUG,
-                use_reloader=False
-            )
+        print(f"Server running at http://localhost:{Config.PORT}")
+        app.run(
+            host=Config.HOST,
+            port=Config.PORT,
+            debug=Config.DEBUG,
+            use_reloader=False
+        )
     except Exception as e:
         logger.error(f"Error running server: {str(e)}")
 
