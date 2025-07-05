@@ -1,12 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Masonry from "react-masonry-css";
-import { LazyLoadImage } from "react-lazy-load-image-component";
 import { Badge } from "@/components/ui/badge";
-import { ImagePreview } from "@/components/image-preview";
-import "react-lazy-load-image-component/src/effects/blur.css";
+import { ImageWithRipple } from "@/components/image-with-ripple";
 
 interface ImageData {
   path: string;
@@ -18,25 +15,26 @@ interface ImageData {
 
 interface ImageMasonryProps {
   images: ImageData[];
-  isLoading: boolean;
+  onImageClick: (image: ImageData) => void;
 }
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 function MasonryImage({
   image,
+  index,
   onImageClick,
 }: {
   image: ImageData;
+  index: number;
   onImageClick: (image: ImageData) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const node = ref.current;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -44,145 +42,138 @@ function MasonryImage({
           observer.disconnect();
         }
       },
-      { rootMargin: "200px" },
+      { rootMargin: "50px" }
     );
 
-    if (node) {
-      observer.observe(node);
+    if (ref.current) {
+      observer.observe(ref.current);
     }
 
-    return () => {
-      if (node) {
-        observer.unobserve(node);
-      }
-    };
+    return () => observer.disconnect();
   }, []);
 
   const formatAestheticScore = (score?: number) => {
-    return score ? `Score: ${score.toFixed(2)}` : "N/A";
+    return score ? `${(score * 100).toFixed(0)}%` : "N/A";
   };
 
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 20, scale: 0.98 }}
-      animate={{
-        opacity: isInView && loaded ? 1 : 0,
-        y: isInView && loaded ? 0 : 20,
-        scale: loaded ? 1 : 0.98,
-      }}
-      transition={{ duration: 0.5 }}
-      className="break-inside-avoid relative group cursor-pointer"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: index * 0.05 }}
+      className="break-inside-avoid mb-4 group cursor-pointer"
       onClick={() => onImageClick(image)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="relative overflow-hidden bg-muted group">
+      <div className="relative overflow-hidden rounded-lg bg-gray-100 shadow-sm hover:shadow-xl transition-all duration-300">
         {isInView && (
-          <LazyLoadImage
+          <ImageWithRipple
             src={`${BACKEND_URL}/api/image?path=${encodeURIComponent(image.path)}`}
             alt={image.path}
-            className={`w-full h-auto transition-transform duration-300 group-hover:scale-110 group-hover:shadow-2xl ${!loaded ? "loading-shimmer" : ""}`}
-            effect="blur"
-            afterLoad={() => setLoaded(true)}
-            placeholder={
-              <div className="w-full h-[200px] bg-muted loading-shimmer" />
-            }
-            visibleByDefault={false}
+            onLoad={() => setIsLoaded(true)}
+            className="w-full h-auto transition-transform duration-300 group-hover:scale-105"
           />
         )}
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileHover={{ opacity: 1 }}
-          animate={{ opacity: 0 }}
-          whileTap={{ opacity: 1 }}
-          transition={{ duration: 0.25 }}
-          className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-3 pointer-events-none group-hover:pointer-events-auto"
-        >
-          <div className="flex flex-wrap gap-2 mb-1">
-            {image.cluster !== undefined && image.cluster !== -1 && (
-              <Badge variant="secondary">Cluster {image.cluster}</Badge>
-            )}
-            {image.is_duplicate && (
-              <Badge variant="destructive">Duplicate</Badge>
-            )}
-            {image.is_low_aesthetic && (
-              <Badge variant="outline">Low Score</Badge>
-            )}
-          </div>
-          <p className="text-white text-base font-semibold drop-shadow-md">
-            {formatAestheticScore(image.aesthetic_score)}
-          </p>
-        </motion.div>
+
+        {/* Overlay with badges */}
+        <AnimatePresence>
+          {isHovered && isLoaded && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"
+            >
+              <div className="absolute top-3 right-3 flex flex-col gap-2">
+                {image.cluster !== undefined && image.cluster !== -1 && (
+                  <Badge variant="secondary" className="bg-white/90 text-gray-900">
+                    Cluster {image.cluster}
+                  </Badge>
+                )}
+                {image.is_duplicate && (
+                  <Badge variant="destructive" className="bg-red-500/90">
+                    Duplicate
+                  </Badge>
+                )}
+                {image.is_low_aesthetic && (
+                  <Badge variant="outline" className="bg-yellow-500/90 text-white border-yellow-500">
+                    Low Score
+                  </Badge>
+                )}
+              </div>
+
+              <div className="absolute bottom-3 left-3 right-3">
+                <div className="text-white">
+                  <p className="text-sm font-medium mb-1">
+                    Score: {formatAestheticScore(image.aesthetic_score)}
+                  </p>
+                  <p className="text-xs opacity-75 truncate">
+                    {image.path.split('/').pop()}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Loading placeholder */}
+        {!isLoaded && isInView && (
+          <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+        )}
       </div>
     </motion.div>
   );
 }
 
-export function ImageMasonry({ images, isLoading }: ImageMasonryProps) {
-  const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
+export function ImageMasonry({ images, onImageClick }: ImageMasonryProps) {
+  const [columns, setColumns] = useState(4);
 
-  const breakpointColumnsObj = {
-    default: 3,
-    1536: 3,
-    1280: 2,
-    900: 1,
-  };
+  const updateColumns = useCallback(() => {
+    const width = window.innerWidth;
+    if (width < 640) setColumns(1);
+    else if (width < 768) setColumns(2);
+    else if (width < 1024) setColumns(3);
+    else if (width < 1280) setColumns(4);
+    else setColumns(5);
+  }, []);
 
-  if (isLoading) {
-    return (
-      <div className="mt-8">
-        <Masonry
-          breakpointCols={breakpointColumnsObj}
-          className="flex gap-4"
-          columnClassName="masonry-column flex flex-col gap-4"
-        >
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="break-inside-avoid">
-              <div className="w-full h-64 bg-muted rounded-lg animate-pulse" />
-            </div>
-          ))}
-        </Masonry>
-      </div>
-    );
-  }
+  useEffect(() => {
+    updateColumns();
+    window.addEventListener('resize', updateColumns);
+    return () => window.removeEventListener('resize', updateColumns);
+  }, [updateColumns]);
 
-  if (images.length === 0) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="text-center py-12"
-      >
-        <div className="text-muted-foreground">
-          No images to display. Start by analyzing a directory.
-        </div>
-      </motion.div>
-    );
-  }
+  // Distribute images across columns
+  const columnArrays = Array.from({ length: columns }, () => [] as ImageData[]);
+  images.forEach((image, index) => {
+    columnArrays[index % columns].push(image);
+  });
 
   return (
-    <div className="mt-4">
-      <Masonry
-        breakpointCols={breakpointColumnsObj}
-        className="flex gap-2"
-        columnClassName="masonry-column flex flex-col gap-2"
+    <div className="w-full">
+      <div 
+        className="flex gap-4"
+        style={{ 
+          columnCount: columns,
+          columnGap: '1rem'
+        }}
       >
-        {images.map((image) => (
-          <MasonryImage
-            key={image.path}
-            image={image}
-            onImageClick={setSelectedImage}
-          />
+        {columnArrays.map((columnImages, columnIndex) => (
+          <div key={columnIndex} className="flex-1 space-y-4">
+            {columnImages.map((image, imageIndex) => (
+              <MasonryImage
+                key={image.path}
+                image={image}
+                index={columnIndex * Math.ceil(images.length / columns) + imageIndex}
+                onImageClick={onImageClick}
+              />
+            ))}
+          </div>
         ))}
-      </Masonry>
-
-      <AnimatePresence>
-        {selectedImage && (
-          <ImagePreview
-            image={selectedImage}
-            onClose={() => setSelectedImage(null)}
-          />
-        )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 }
