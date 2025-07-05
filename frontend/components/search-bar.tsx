@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Folder, Sparkles, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/loading-spinner";
+import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface SearchBarProps {
   value: string;
@@ -26,6 +27,7 @@ export function SearchBar({
   showClearButton = true,
   autoFocus = false,
 }: SearchBarProps) {
+  const isMobile = useIsMobile();
   const [isFocused, setIsFocused] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -41,18 +43,9 @@ export function SearchBar({
     const newValue = e.target.value;
     onChange(newValue);
 
-    // Show typing indicator
     setIsTyping(true);
-
-    // Clear previous timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // Hide typing indicator after delay
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-    }, 500);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 500);
   };
 
   const handleClear = () => {
@@ -74,48 +67,42 @@ export function SearchBar({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2, duration: 0.6 }}
-      className="max-w-2xl mx-auto"
+      className={`${isMobile ? "max-w-full" : "max-w-2xl"} mx-auto`}
     >
       <div
-        className={`relative flex items-center glass border-2 rounded-2xl shadow-medium transition-all duration-300 ${
+        className={`relative flex ${isMobile ? "flex-col gap-3" : "items-center gap-2"} px-4 py-3 rounded-2xl border-2 glass shadow-medium transition-all duration-300 ${
           isFocused
             ? "border-primary/50 shadow-strong"
             : "border-border/50 hover:border-border"
         } ${showError ? "border-destructive/50" : ""}`}
       >
-        <motion.div
-          className="flex items-center pl-6"
-          animate={{ scale: isFocused ? 1.1 : 1 }}
-          transition={{ duration: 0.2 }}
-        >
-          <Folder
-            className={`w-5 h-5 transition-colors duration-200 ${
-              isFocused ? "text-primary" : "text-muted-foreground"
-            }`}
-          />
-        </motion.div>
+        {/* Icon */}
+        <Folder
+          className={`w-5 h-5 transition-colors duration-200 ${
+            isFocused ? "text-primary" : "text-muted-foreground"
+          }`}
+        />
 
-        <div className="flex-1 relative">
+        {/* Input */}
+        <div className="relative flex-1">
           <Input
             ref={inputRef}
-            type="text"
             value={value}
             onChange={handleInputChange}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             onKeyPress={handleKeyPress}
             placeholder={placeholder}
-            className="border-0 bg-transparent px-4 py-4 text-lg focus:ring-0 focus:outline-none placeholder:text-muted-foreground/60"
+            className={`border-none bg-transparent focus:ring-0 focus:outline-none placeholder:text-muted-foreground/60 px-2 py-1 ${isMobile ? "text-base" : ""}`}
           />
-
-          {/* Typing indicator */}
+          {/* Typing Indicator */}
           <AnimatePresence>
             {isTyping && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2"
               >
                 <LoadingSpinner variant="dots" size="small" />
               </motion.div>
@@ -123,7 +110,7 @@ export function SearchBar({
           </AnimatePresence>
         </div>
 
-        {/* Clear button */}
+        {/* Clear Button */}
         <AnimatePresence>
           {showClearButton && value && !isLoading && (
             <motion.button
@@ -131,7 +118,7 @@ export function SearchBar({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               onClick={handleClear}
-              className="mr-2 p-2 rounded-lg hover:bg-muted/50 transition-colors duration-200"
+              className="p-2 rounded-lg hover:bg-muted/50 transition-colors"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -140,16 +127,17 @@ export function SearchBar({
           )}
         </AnimatePresence>
 
+        {/* Analyze Button */}
         <Button
           onClick={onAnalyze}
           disabled={isLoading || !isValidPath}
           loading={isLoading}
           loadingText="Analyzing..."
-          className="mr-2 rounded-xl btn-primary px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          ripple={true}
+          className={`rounded-xl btn-primary ${isMobile ? "w-full px-4 py-3" : "px-6 py-2"} disabled:opacity-50 disabled:cursor-not-allowed`}
+          ripple
         >
           {!isLoading && (
-            <div className="flex items-center">
+            <div className="flex items-center justify-center">
               <Sparkles className="w-4 h-4 mr-2" />
               Analyze
             </div>
@@ -157,7 +145,7 @@ export function SearchBar({
         </Button>
       </div>
 
-      {/* Error message */}
+      {/* Error Message */}
       <AnimatePresence>
         {showError && (
           <motion.div
@@ -165,11 +153,11 @@ export function SearchBar({
             animate={{ opacity: 1, y: 0, height: "auto" }}
             exit={{ opacity: 0, y: -10, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="mt-4 p-4 glass border border-destructive/20 rounded-xl overflow-hidden"
+            className="mt-4 p-4 glass border border-destructive/20 rounded-xl"
           >
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-              <p className="text-sm text-destructive text-center">
+              <p className="text-sm text-destructive">
                 💡 Please enter an absolute path (starting with /)
               </p>
             </div>
@@ -177,7 +165,7 @@ export function SearchBar({
         )}
       </AnimatePresence>
 
-      {/* Success indicator */}
+      {/* Success Message */}
       <AnimatePresence>
         {isValidPath && value && !isLoading && (
           <motion.div
@@ -185,13 +173,11 @@ export function SearchBar({
             animate={{ opacity: 1, y: 0, height: "auto" }}
             exit={{ opacity: 0, y: -10, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="mt-4 p-4 glass border border-green-500/20 rounded-xl overflow-hidden"
+            className="mt-4 p-4 glass border border-green-500/20 rounded-xl"
           >
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-500" />
-              <p className="text-sm text-green-600 text-center">
-                ✅ Valid path detected
-              </p>
+              <p className="text-sm text-green-600">✅ Valid path detected</p>
             </div>
           </motion.div>
         )}

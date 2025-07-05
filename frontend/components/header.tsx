@@ -4,12 +4,15 @@ import { motion } from "framer-motion";
 import { Settings, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface HeaderProps {
   onSettingsClick: () => void;
 }
 
 export function Header({ onSettingsClick }: HeaderProps) {
+  const isMobile = useIsMobile();
+
   return (
     <motion.header
       initial={{ opacity: 0, y: -20 }}
@@ -17,7 +20,7 @@ export function Header({ onSettingsClick }: HeaderProps) {
       transition={{ duration: 0.6 }}
       className="sticky top-0 z-50 w-full border-b border-border/50 glass supports-[backdrop-filter]:bg-background/60"
     >
-      <div className="container mx-auto px-6">
+      <div className={`container mx-auto ${isMobile ? "px-4" : "px-6"}`}>
         <div className="flex h-16 items-center justify-between">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -38,7 +41,11 @@ export function Header({ onSettingsClick }: HeaderProps) {
               />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Wallyzer</h1>
+              <h1
+                className={`${isMobile ? "text-lg" : "text-xl"} font-bold text-foreground`}
+              >
+                Wallyzer
+              </h1>
               <p className="text-xs text-muted-foreground">AI Image Curator</p>
             </div>
           </motion.div>
@@ -49,20 +56,18 @@ export function Header({ onSettingsClick }: HeaderProps) {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="flex items-center space-x-3"
           >
-            <a
-              href="https://github.com/Dhairya3391/wallpaper-analyzerV2"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button
-                variant="ghost"
-                size="sm"
-                className="hidden sm:flex btn-ghost"
+            {!isMobile && (
+              <a
+                href="https://github.com/Dhairya3391/wallpaper-analyzerV2"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                <Github className="w-4 h-4 mr-2" />
-                GitHub
-              </Button>
-            </a>
+                <Button variant="ghost" size="sm" className="btn-ghost">
+                  <Github className="w-4 h-4 mr-2" />
+                  GitHub
+                </Button>
+              </a>
+            )}
             <Button
               variant="ghost"
               size="sm"

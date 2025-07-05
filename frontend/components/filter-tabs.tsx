@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Search, X, Filter, TrendingUp, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const MotionButton = motion.create(Button);
 
@@ -38,6 +39,7 @@ export function FilterTabs({
   totalImages,
   filteredCount,
 }: FilterTabsProps) {
+  const isMobile = useIsMobile();
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   const handleTabClick = (value: string) => {
@@ -62,7 +64,7 @@ export function FilterTabs({
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
-          className={`relative w-full max-w-md transition-all duration-300 ${
+          className={`relative w-full ${isMobile ? "max-w-full" : "max-w-md"} transition-all duration-300 ${
             isSearchFocused ? "max-w-lg" : ""
           }`}
         >
@@ -102,7 +104,9 @@ export function FilterTabs({
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex flex-wrap justify-center gap-3">
+      <div
+        className={`flex flex-wrap ${isMobile ? "justify-start" : "justify-center"} gap-3`}
+      >
         <MotionButton
           whileHover={{ scale: 1.02 }}
           transition={{ type: "spring", stiffness: 400, damping: 17 }}
@@ -110,7 +114,7 @@ export function FilterTabs({
             selectedCluster === "all" && !showDuplicates ? "default" : "outline"
           }
           size="sm"
-          className={`px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
+          className={`${isMobile ? "px-4 py-2 text-xs" : "px-6 py-3 text-sm"} font-medium transition-all duration-300 rounded-xl ${
             selectedCluster === "all" && !showDuplicates
               ? "btn-primary shadow-medium"
               : "glass hover:bg-muted/50 border-border/50"
@@ -134,7 +138,7 @@ export function FilterTabs({
                 : "outline"
             }
             size="sm"
-            className={`px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
+            className={`${isMobile ? "px-4 py-2 text-xs" : "px-6 py-3 text-sm"} font-medium transition-all duration-300 rounded-xl ${
               selectedCluster === cluster.id.toString() && !showDuplicates
                 ? "btn-primary shadow-medium"
                 : "glass hover:bg-muted/50 border-border/50"
@@ -154,7 +158,7 @@ export function FilterTabs({
             whileHover={{ scale: 1.02 }}
             variant={showDuplicates ? "destructive" : "outline"}
             size="sm"
-            className={`px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
+            className={`${isMobile ? "px-4 py-2 text-xs" : "px-6 py-3 text-sm"} font-medium transition-all duration-300 rounded-xl ${
               showDuplicates
                 ? "shadow-medium"
                 : "glass hover:bg-muted/50 border-border/50"

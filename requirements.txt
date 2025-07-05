@@ -1,19 +1,13 @@
 # Core scientific computing
 numpy>=1.24.0
-scipy>=1.10.0
 
-# Image processing (Mac optimized)
+# Image processing
 Pillow>=10.0.0
-opencv-python>=4.8.0
-scikit-image>=0.21.0
 
 # Machine learning
 torch>=2.0.0
 torchvision>=0.15.0
 scikit-learn>=1.3.0
-
-# Visualization
-matplotlib>=3.7.0
 
 # Web framework
 Flask>=2.3.0

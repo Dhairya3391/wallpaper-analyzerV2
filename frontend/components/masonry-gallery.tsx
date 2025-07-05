@@ -20,6 +20,7 @@ import "yet-another-react-lightbox/plugins/thumbnails.css";
 import { Card } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/loading-spinner";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface MasonryGalleryProps {
   images: string[];
@@ -56,6 +57,7 @@ const MasonryGallery: React.FC<MasonryGalleryProps> = ({
   loadingStrategy = "lazy",
   placeholderType = "skeleton",
 }) => {
+  const isMobile = useIsMobile();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
@@ -92,11 +94,13 @@ const MasonryGallery: React.FC<MasonryGalleryProps> = ({
     if (!containerRef.current || items.length === 0) return;
 
     const containerWidth = containerRef.current.offsetWidth;
+    const mobileColumnWidth = isMobile ? 200 : columnWidth;
+    const mobileColumnGutter = isMobile ? 8 : columnGutter;
     const numColumns = Math.floor(
-      containerWidth / (columnWidth + columnGutter)
+      containerWidth / (mobileColumnWidth + mobileColumnGutter)
     );
     const actualColumnWidth =
-      (containerWidth - (numColumns - 1) * columnGutter) / numColumns;
+      (containerWidth - (numColumns - 1) * mobileColumnGutter) / numColumns;
 
     const columnHeights = new Array(numColumns).fill(0);
     const newColumns: VirtualizedItem[][] = Array.from(
@@ -123,11 +127,11 @@ const MasonryGallery: React.FC<MasonryGalleryProps> = ({
       };
 
       newColumns[shortestColumnIndex].push(virtualizedItem);
-      columnHeights[shortestColumnIndex] += height + columnGutter;
+      columnHeights[shortestColumnIndex] += height + mobileColumnGutter;
     });
 
     setColumns(newColumns);
-  }, [items, imageDimensions, columnWidth, columnGutter]);
+  }, [items, imageDimensions, columnWidth, columnGutter, isMobile]);
 
   const handleImageClick = useCallback((index: number) => {
     setCurrentImageIndex(index);
@@ -153,7 +157,7 @@ const MasonryGallery: React.FC<MasonryGalleryProps> = ({
   return (
     <div className={cn("w-full", className)}>
       <div ref={containerRef} className="relative">
-        <div className="flex gap-4">
+        <div className={`flex ${isMobile ? "gap-2" : "gap-4"}`}>
           {columns.map((column, columnIndex) => (
             <div key={columnIndex} className="flex-1">
               {column.map(item => (

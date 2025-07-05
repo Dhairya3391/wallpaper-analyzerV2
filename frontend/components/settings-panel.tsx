@@ -18,14 +18,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface AnalysisSettings {
   directory: string;
@@ -50,6 +44,8 @@ export function SettingsPanel({
   open,
   onOpenChange,
 }: SettingsPanelProps) {
+  const isMobile = useIsMobile();
+
   const updateSetting = <K extends keyof AnalysisSettings>(
     key: K,
     value: AnalysisSettings[K]
@@ -59,7 +55,9 @@ export function SettingsPanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className={`${isMobile ? "max-w-full mx-4" : "max-w-2xl"} max-h-[90vh] overflow-y-auto`}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Settings2 className="w-6 h-6" />
@@ -236,25 +234,19 @@ export function SettingsPanel({
               <Label htmlFor="limit" className="text-sm font-medium">
                 Processing Limit
               </Label>
-              <Select
-                value={settings.limit.toString()}
-                onValueChange={value =>
-                  updateSetting("limit", Number.parseInt(value))
+              <Input
+                id="limit"
+                type="number"
+                value={settings.limit}
+                onChange={e =>
+                  updateSetting("limit", Number.parseInt(e.target.value) || 0)
                 }
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">No Limit</SelectItem>
-                  <SelectItem value="100">100 images</SelectItem>
-                  <SelectItem value="500">500 images</SelectItem>
-                  <SelectItem value="1000">1,000 images</SelectItem>
-                  <SelectItem value="5000">5,000 images</SelectItem>
-                </SelectContent>
-              </Select>
+                placeholder="0 for no limit"
+                className="mt-1"
+              />
               <p className="text-xs text-muted-foreground mt-1">
-                Limit the number of images to process for faster analysis
+                Limit the number of images to process for faster analysis (0 =
+                no limit)
               </p>
             </div>
           </div>

@@ -10,12 +10,15 @@ from flask_cors import CORS
 from collections import defaultdict
 import json
 from datetime import datetime
-from sklearn.cluster import DBSCAN
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 import hashlib
-import base64
 import platform
+import time
 from typing import Dict, List, Tuple, Optional, Any, Union
 from tqdm import tqdm
+import concurrent.futures
+import threading
 
 # Mac-specific optimizations
 if platform.system() == 'Darwin':
@@ -25,21 +28,25 @@ if platform.system() == 'Darwin':
     if torch.backends.mps.is_available():
         print("✅ MPS (Metal Performance Shaders) available for Mac optimization")
 
-# Configuration constants (functional approach - no classes)
+# Configuration constants
 DEVICE = torch.device("mps") if torch.backends.mps.is_available() else \
          torch.device("cuda") if torch.cuda.is_available() else \
          torch.device("cpu")
 
+# Optimized batch sizes and thread counts
+MAX_WORKERS = min(8, (os.cpu_count() or 1) + 4)  # Optimal for I/O bound tasks
 BATCH_SIZE = 256 if torch.backends.mps.is_available() else \
              128 if torch.cuda.is_available() else \
-             32  # Increased for modern CPUs
+             64
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.webp', '.tiff'}
 DEFAULT_SIMILARITY_THRESHOLD = 0.85
-DEFAULT_AESTHETIC_THRESHOLD = 0.8
+DEFAULT_AESTHETIC_THRESHOLD = 0.85
 
-DBSCAN_EPS = 0.3
-DBSCAN_MIN_SAMPLES = 3
+# KMeans parameters
+KMEANS_MAX_ITER = 300
+KMEANS_RANDOM_STATE = 42
+KMEANS_N_INIT = 10
 
 HOST = '0.0.0.0'
 PORT = 8000
@@ -48,15 +55,14 @@ DEBUG = False
 ENABLE_APP_LOGGING = False  # Disable verbose logging
 
 CACHE_DIR = 'image_cache'
-MAX_HASH_CACHE = 2000
 
-# Minimal logging setup - only errors and warnings
+# Thread-safe logging setup
 handlers = [logging.FileHandler('analyzed.log')]
 if ENABLE_APP_LOGGING:
     handlers.append(logging.StreamHandler())
 
 logging.basicConfig(
-    level=logging.WARNING,  # Only warnings and errors
+    level=logging.WARNING,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=handlers
 )
@@ -65,56 +71,68 @@ logger = logging.getLogger('WallpaperAnalyzer')
 # Ensure cache directory exists
 os.makedirs(CACHE_DIR, exist_ok=True)
 
-# Global models (initialized once)
+# Global models and thread safety
 feature_model = None
 aesthetic_model = None
 transform = None
+model_lock = threading.Lock()
 
 def initialize_models() -> None:
-    """Initialize neural network models globally with Mac optimization"""
+    """Initialize neural network models globally with thread safety"""
     global feature_model, aesthetic_model, transform
     
-    print(f"🔄 Initializing models on device: {DEVICE}")
-    
-    # Enhanced transform with better image quality
-    transform = transforms.Compose([
-        transforms.Resize((224, 224), antialias=True),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    
-    try:
-        # Use more modern and efficient models
-        # Feature extraction model - using EfficientNet for better performance
-        feature_model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1)
-        # Remove the classifier layer to get features
-        feature_model.classifier = torch.nn.Identity()
-        feature_model = feature_model.to(DEVICE)
-        feature_model.eval()
+    with model_lock:
+        if feature_model is not None:
+            return  # Already initialized
         
-        # Aesthetic evaluation model - using ResNet50 for better accuracy
-        aesthetic_model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
-        num_features = aesthetic_model.fc.in_features
-        aesthetic_model.fc = torch.nn.Linear(num_features, 1)
-        aesthetic_model = aesthetic_model.to(DEVICE)
-        aesthetic_model.eval()
+        print(f"🔄 Initializing models on device: {DEVICE}")
         
-        print("✅ Models initialized successfully")
+        # Enhanced transform with better image quality
+        transform = transforms.Compose([
+            transforms.Resize((224, 224), antialias=True),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
         
-    except Exception as e:
-        logger.warning(f"Failed to load modern models, falling back to original models: {e}")
-        # Fallback to original models
-        feature_model = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1)
-        # Remove the classifier layer to get features
-        feature_model.classifier = torch.nn.Identity()
-        feature_model = feature_model.to(DEVICE)
-        feature_model.eval()
-        
-        aesthetic_model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
-        num_features = aesthetic_model.fc.in_features
-        aesthetic_model.fc = torch.nn.Linear(num_features, 1)
-        aesthetic_model = aesthetic_model.to(DEVICE)
-        aesthetic_model.eval()
+        # Progress bar for model initialization
+        with tqdm(total=2, desc="Loading models", unit="model", ncols=80) as pbar:
+            try:
+                # Use EfficientNet for better performance
+                pbar.set_description("Loading feature model (EfficientNet)")
+                feature_model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1)
+                feature_model.classifier = torch.nn.Identity()
+                feature_model = feature_model.to(DEVICE)
+                feature_model.eval()
+                pbar.update(1)
+                
+                # Aesthetic evaluation model
+                pbar.set_description("Loading aesthetic model (ResNet50)")
+                aesthetic_model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+                num_features = aesthetic_model.fc.in_features
+                aesthetic_model.fc = torch.nn.Linear(num_features, 1)
+                aesthetic_model = aesthetic_model.to(DEVICE)
+                aesthetic_model.eval()
+                pbar.update(1)
+                
+                print("✅ Models initialized successfully")
+                
+            except Exception as e:
+                logger.warning(f"Failed to load modern models, falling back: {e}")
+                # Fallback to lighter models
+                pbar.set_description("Loading fallback feature model (MobileNet)")
+                feature_model = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1)
+                feature_model.classifier = torch.nn.Identity()
+                feature_model = feature_model.to(DEVICE)
+                feature_model.eval()
+                pbar.update(1)
+                
+                pbar.set_description("Loading fallback aesthetic model (ResNet18)")
+                aesthetic_model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+                num_features = aesthetic_model.fc.in_features
+                aesthetic_model.fc = torch.nn.Linear(num_features, 1)
+                aesthetic_model = aesthetic_model.to(DEVICE)
+                aesthetic_model.eval()
+                pbar.update(1)
 
 def get_image_hash(image_path: str) -> Optional[str]:
     """Calculate SHA256 hash of image file"""
@@ -133,21 +151,15 @@ def load_cached_data(image_hash: str) -> Dict[str, Any]:
     """Load cached data for an image"""
     cache_file = get_cache_file_path(image_hash)
     if os.path.exists(cache_file):
-        try:
-            with open(cache_file, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"Error loading cache for {image_hash}: {e}")
+        data = safe_json_load(cache_file)
+        return data if data is not None else {}
     return {}
 
 def save_cached_data(image_hash: str, data: Dict[str, Any]) -> None:
     """Save data to cache for an image"""
     cache_file = get_cache_file_path(image_hash)
-    try:
-        with open(cache_file, 'w') as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        logger.error(f"Error saving cache for {image_hash}: {e}")
+    if not safe_json_dump(data, cache_file):
+        logger.warning(f"Failed to save cache for {image_hash}")
 
 def update_cached_data(image_hash: str, updates: Dict[str, Any]) -> None:
     """Update specific fields in cached data"""
@@ -162,18 +174,32 @@ def cleanup_old_cache(max_age_days: int = 30) -> None:
         cutoff_time = datetime.now().timestamp() - (max_age_days * 24 * 60 * 60)
         cache_files = [f for f in os.listdir(CACHE_DIR) if f.endswith('.json')]
         
-        for cache_file in cache_files:
-            cache_path = os.path.join(CACHE_DIR, cache_file)
-            if os.path.getmtime(cache_path) < cutoff_time:
-                os.remove(cache_path)
+        if not cache_files:
+            print("✅ No cache files to clean up")
+            return
+            
+        print(f"🧹 Cleaning up cache files older than {max_age_days} days...")
+        removed_count = 0
+        
+        with tqdm(cache_files, desc="Cleaning cache", unit="file", ncols=80) as pbar:
+            for cache_file in pbar:
+                cache_path = os.path.join(CACHE_DIR, cache_file)
+                if os.path.getmtime(cache_path) < cutoff_time:
+                    os.remove(cache_path)
+                    removed_count += 1
+                    pbar.set_postfix({"removed": removed_count})
+        
+        print(f"✅ Cache cleanup complete - removed {removed_count} files")
     except Exception as e:
         logger.warning(f"Error during cache cleanup: {e}")
 
 def generate_analysis_cache_key(directory: str, recursive: bool, similarity_threshold: float, 
-                               aesthetic_threshold: float) -> str:
+                               aesthetic_threshold: float, n_clusters: Optional[int] = None) -> str:
     """Generate cache key for analysis parameters (excluding limit)"""
     # Create a stable cache key that doesn't include limit
     key_string = f"{directory}_{recursive}_{similarity_threshold}_{aesthetic_threshold}"
+    if n_clusters is not None:
+        key_string += f"_{n_clusters}"
     return hashlib.sha256(key_string.encode()).hexdigest()
 
 def get_analysis_cache_file(cache_key: str) -> str:
@@ -184,24 +210,72 @@ def load_analysis_cache(cache_key: str) -> Optional[Dict[str, Any]]:
     """Load cached analysis results"""
     cache_file = get_analysis_cache_file(cache_key)
     if os.path.exists(cache_file):
-        try:
-            with open(cache_file, 'r') as f:
-                cached_data = json.load(f)
-                return cached_data
-        except Exception as e:
-            logger.error(f"Error loading analysis cache: {e}")
+        return safe_json_load(cache_file)
     return None
+
+def safe_convert_numpy(obj):
+    """Safely convert numpy types to native Python types for JSON serialization"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.int32, np.int64)):
+        return int(obj)
+    elif isinstance(obj, (np.float32, np.float64)):
+        return float(obj)
+    elif isinstance(obj, dict):
+        return {key: safe_convert_numpy(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [safe_convert_numpy(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(safe_convert_numpy(item) for item in obj)
+    else:
+        return obj
+
+
+
+def safe_json_dump(data: Any, file_path: str) -> bool:
+    """Safely dump data to JSON file with proper error handling"""
+    try:
+        # Convert numpy types before saving
+        json_safe_data = safe_convert_numpy(data)
+        
+        # Write to temporary file first, then rename (atomic operation)
+        temp_path = file_path + '.tmp'
+        with open(temp_path, 'w') as f:
+            json.dump(json_safe_data, f, indent=2, default=str)
+        
+        # Atomic rename
+        os.rename(temp_path, file_path)
+        return True
+    except Exception as e:
+        logger.error(f"Error saving JSON to {file_path}: {e}")
+        # Clean up temp file if it exists
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+        return False
+
+def safe_json_load(file_path: str) -> Optional[Dict[str, Any]]:
+    """Safely load JSON file with error handling"""
+    try:
+        with open(file_path, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Error loading JSON from {file_path}: {e}")
+        return None
 
 def save_analysis_cache(cache_key: str, data: Dict[str, Any]) -> None:
     """Save analysis results to cache"""
     cache_file = get_analysis_cache_file(cache_key)
-    try:
-        with open(cache_file, 'w') as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        logger.error(f"Error saving analysis cache: {e}")
+    if not safe_json_dump(data, cache_file):
+        logger.warning(f"Failed to save analysis cache for {cache_key}")
 
-def validate_cache_integrity(cached_data: Dict[str, Any], current_paths: List[str]) -> bool:
+def validate_cache_integrity(cached_data: Dict[str, Any], current_paths: List[str], n_clusters: Optional[int] = None) -> bool:
     """Validate if cached data is still valid for current directory state"""
     try:
         cached_paths = set(cached_data.get('image_paths', []))
@@ -209,6 +283,12 @@ def validate_cache_integrity(cached_data: Dict[str, Any], current_paths: List[st
         
         # Check if all current paths are in cached paths
         if not current_paths_set.issubset(cached_paths):
+            return False
+            
+        # Check if n_clusters parameter matches
+        cached_params = cached_data.get('analysis_params', {})
+        cached_n_clusters = cached_params.get('n_clusters')
+        if cached_n_clusters != n_clusters:
             return False
             
         # Check if cache is not too old (7 days)
@@ -315,8 +395,17 @@ def clear_cache(cache_type: str = 'all') -> Dict[str, Any]:
     """Clear cache files"""
     try:
         cache_files = [f for f in os.listdir(CACHE_DIR) if f.endswith('.json')]
-        deleted_count = 0
         
+        if not cache_files:
+            print("✅ No cache files to clear")
+            return {
+                'success': True,
+                'deleted_files': 0,
+                'cache_type': cache_type
+            }
+        
+        # Filter files based on cache type
+        files_to_delete = []
         for cache_file in cache_files:
             should_delete = False
             
@@ -328,9 +417,26 @@ def clear_cache(cache_type: str = 'all') -> Dict[str, Any]:
                 should_delete = True
                 
             if should_delete:
+                files_to_delete.append(cache_file)
+        
+        if not files_to_delete:
+            print(f"✅ No {cache_type} cache files to clear")
+            return {
+                'success': True,
+                'deleted_files': 0,
+                'cache_type': cache_type
+            }
+        
+        print(f"🗑️ Clearing {cache_type} cache ({len(files_to_delete)} files)...")
+        deleted_count = 0
+        
+        with tqdm(files_to_delete, desc="Clearing cache", unit="file", ncols=80) as pbar:
+            for cache_file in pbar:
                 os.remove(os.path.join(CACHE_DIR, cache_file))
                 deleted_count += 1
+                pbar.set_postfix({"deleted": deleted_count})
         
+        print(f"✅ Cache cleared - deleted {deleted_count} files")
         return {
             'success': True,
             'deleted_files': deleted_count,
@@ -372,7 +478,7 @@ def calculate_perceptual_hash(image_path: str) -> Optional[bytes]:
         return None
 
 def process_single_image(image_path: str, process_type: str = 'features') -> Optional[Union[List[float], float]]:
-    """Process a single image for features or aesthetic score"""
+    """Process a single image for features or aesthetic score with thread safety"""
     try:
         with Image.open(image_path) as img:
             if img.mode != 'RGB':
@@ -382,183 +488,317 @@ def process_single_image(image_path: str, process_type: str = 'features') -> Opt
             
             with torch.no_grad():
                 if process_type == 'features':
-                    features = feature_model(img_tensor)
+                    with model_lock:
+                        features = feature_model(img_tensor)
                     return features.squeeze().cpu().numpy().tolist()
                 elif process_type == 'aesthetic':
-                    score = aesthetic_model(img_tensor)
-                    return torch.sigmoid(score).item()
+                    with model_lock:
+                        score = aesthetic_model(img_tensor)
+                    return float(torch.sigmoid(score).item())
                     
     except Exception as e:
         logger.error(f"Error processing {image_path}: {e}")
         return None
 
-def process_images_sequential(image_paths: List[str], process_type: str = 'features') -> Dict[str, Union[List[float], float]]:
-    """Process images sequentially with progress bar"""
+def process_batch_images(image_paths: List[str], process_type: str = 'features') -> Dict[str, Union[List[float], float]]:
+    """Process a batch of images with proper error handling"""
     results = {}
-    total = len(image_paths)
     
-    if total == 0:
-        return results
+    for path in image_paths:
+        try:
+            result = process_single_image(path, process_type)
+            if result is not None:
+                results[path] = result
+        except Exception as e:
+            logger.error(f"Error processing {path}: {e}")
+            continue
     
-    # Create progress bar
-    desc = f"Processing {process_type}"
-    pbar = tqdm(image_paths, desc=desc, unit="img", ncols=80)
-    
-    for path in pbar:
-        pbar.set_postfix({"file": os.path.basename(path)[:20]})
-        result = process_single_image(path, process_type)
-        if result is not None:
-            results[path] = result
-    
-    pbar.close()
     return results
 
-def find_duplicates_sequential(image_paths: List[str], threshold: float = DEFAULT_SIMILARITY_THRESHOLD) -> List[List[str]]:
-    """Find duplicate images using sequential processing"""
+def process_images_multithreaded(image_paths: List[str], process_type: str = 'features') -> Dict[str, Union[List[float], float]]:
+    """Process images using multithreading with proper batch management"""
+    if not image_paths:
+        return {}
+    
+    # Create batches to avoid overwhelming the GPU
+    batch_size = min(BATCH_SIZE, len(image_paths))
+    batches = [image_paths[i:i + batch_size] for i in range(0, len(image_paths), batch_size)]
+    
+    results = {}
+    desc = f"Processing {process_type}"
+    
+    # Use ThreadPoolExecutor for I/O bound operations
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        # Submit all batches
+        future_to_batch = {
+            executor.submit(process_batch_images, batch, process_type): batch 
+            for batch in batches
+        }
+        
+        # Process results with progress bar
+        with tqdm(total=len(image_paths), desc=desc, unit="img", ncols=80) as pbar:
+            for future in concurrent.futures.as_completed(future_to_batch):
+                try:
+                    batch_results = future.result()
+                    results.update(batch_results)
+                    pbar.update(len(batch_results))
+                except Exception as e:
+                    logger.error(f"Error processing batch: {e}")
+                    continue
+    
+    return results
+
+
+
+def find_duplicates_multithreaded(image_paths: List[str], threshold: float = DEFAULT_SIMILARITY_THRESHOLD) -> List[List[str]]:
+    """Find duplicate images using multithreading"""
     if not image_paths:
         return []
 
     print("🔍 Finding duplicates...")
     
-    # Phase 1: Hash-based grouping
+    # Phase 1: Hash-based grouping with multithreading
+    def calculate_hash_batch(paths_batch):
+        batch_hashes = {}
+        for path in paths_batch:
+            hash_value = calculate_perceptual_hash(path)
+            if hash_value:
+                batch_hashes[path] = hash_value
+        return batch_hashes
+    
+    # Create batches for hash calculation
+    batch_size = max(1, len(image_paths) // MAX_WORKERS)
+    batches = [image_paths[i:i + batch_size] for i in range(0, len(image_paths), batch_size)]
+    
+    # Calculate hashes in parallel
+    all_hashes = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        with tqdm(total=len(image_paths), desc="Calculating hashes", unit="img", ncols=80) as pbar:
+            futures = [executor.submit(calculate_hash_batch, batch) for batch in batches]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    batch_hashes = future.result()
+                    all_hashes.update(batch_hashes)
+                    pbar.update(len(batch_hashes))
+                except Exception as e:
+                    logger.error(f"Error in hash calculation batch: {e}")
+    
+    # Group by hash
     image_hashes = defaultdict(list)
-    pbar = tqdm(image_paths, desc="Calculating hashes", unit="img", ncols=80)
-    for path in pbar:
-        hash_value = calculate_perceptual_hash(path)
-        if hash_value:
-            image_hashes[hash_value].append(path)
-    pbar.close()
-
+    for path, hash_value in all_hashes.items():
+        image_hashes[hash_value].append(path)
+    
     potential_duplicates = [paths for paths in image_hashes.values() if len(paths) > 1]
     
-    # Phase 2: Feature-based comparison for remaining images
-    if len(image_paths) <= 1000:  # Limit for performance
-        features = process_images_sequential(image_paths, 'features')
+    # Phase 2: Feature-based comparison for remaining images (if manageable)
+    if len(image_paths) <= 1000:
+        print("🔍 Computing similarity matrix...")
+        features = process_images_multithreaded(image_paths, 'features')
         
-        # Calculate similarity matrix
         paths = list(features.keys())
         if paths:
-            print("🔍 Computing similarity matrix...")
             feature_matrix = np.stack([features[path] for path in paths])
             feature_matrix = feature_matrix / np.linalg.norm(feature_matrix, axis=1, keepdims=True)
             similarity_matrix = np.dot(feature_matrix, feature_matrix.T)
             
             # Find similar images
             processed = set()
-            for i in range(len(paths)):
-                if i in processed:
-                    continue
-                
-                current_group = {paths[i]}
-                processed.add(i)
-                
-                for j in range(i + 1, len(paths)):
-                    if j in processed:
+            print("🔍 Finding similar images...")
+            with tqdm(range(len(paths)), desc="Finding duplicates", unit="img", ncols=80) as pbar:
+                for i in pbar:
+                    if i in processed:
                         continue
-                    if similarity_matrix[i, j] > threshold:
-                        current_group.add(paths[j])
-                        processed.add(j)
-                
-                if len(current_group) > 1:
-                    potential_duplicates.append(list(current_group))
+                    
+                    current_group = {paths[i]}
+                    processed.add(i)
+                    
+                    for j in range(i + 1, len(paths)):
+                        if j in processed:
+                            continue
+                        if similarity_matrix[i, j] > threshold:
+                            current_group.add(paths[j])
+                            processed.add(j)
+                    
+                    if len(current_group) > 1:
+                        potential_duplicates.append(list(current_group))
+                    pbar.set_postfix({"groups": len(potential_duplicates)})
 
     return potential_duplicates
 
-def extract_features_sequential(image_paths: List[str]) -> Tuple[np.ndarray, List[str]]:
-    """Extract features from images sequentially"""
-    features = []
-    valid_paths = []
-    
-    pbar = tqdm(image_paths, desc="Extracting features", unit="img", ncols=80)
-    for path in pbar:
-        try:
-            feature = process_single_image(path, 'features')
-            if feature is not None:
-                features.append(feature)
-                valid_paths.append(path)
-        except Exception as e:
-            logger.error(f"Error extracting features for {path}: {e}")
-            continue
-    pbar.close()
-    
-    return np.array(features), valid_paths
 
-def cluster_images_dbscan(image_paths: List[str]) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Any]]:
-    """Cluster images using DBSCAN"""
-    print("📊 Clustering images...")
-    features, valid_paths = extract_features_sequential(image_paths)
+
+def extract_features_multithreaded(image_paths: List[str]) -> Tuple[np.ndarray, List[str]]:
+    """Extract features from images using multithreading"""
+    features_dict = process_images_multithreaded(image_paths, 'features')
     
-    if len(features) < DBSCAN_MIN_SAMPLES:
-        return {0: {"paths": valid_paths, "size": len(valid_paths)}}, {}
+    if not features_dict:
+        return np.array([]), []
     
-    # Apply DBSCAN clustering
-    dbscan = DBSCAN(eps=DBSCAN_EPS, min_samples=DBSCAN_MIN_SAMPLES)
-    cluster_labels = dbscan.fit_predict(features)
+    valid_paths = list(features_dict.keys())
+    features = np.array([features_dict[path] for path in valid_paths])
+    
+    return features, valid_paths
+
+
+
+def find_optimal_k_elbow(features: np.ndarray, max_k: int = 10) -> int:
+    """Find optimal number of clusters using elbow method"""
+    if len(features) < 2:
+        return 1
+    
+    # Limit max_k to number of samples
+    max_k = min(max_k, len(features) - 1)
+    if max_k < 2:
+        return 1
+    
+    inertias = []
+    silhouette_scores = []
+    k_values = range(1, max_k + 1)
+    
+    print(f"🔍 Finding optimal k using elbow method (testing k=1 to {max_k})...")
+    
+    with tqdm(k_values, desc="Testing k values", unit="k", ncols=80) as pbar:
+        for k in pbar:
+            pbar.set_postfix({"current_k": k})
+            if k == 1:
+                # For k=1, inertia is sum of squared distances to mean
+                inertia = np.sum((features - np.mean(features, axis=0))**2)
+                inertias.append(inertia)
+                silhouette_scores.append(0)  # Silhouette score is not defined for k=1
+            else:
+                # Use KMeans for accuracy
+                kmeans = KMeans(
+                    n_clusters=k,
+                    max_iter=KMEANS_MAX_ITER,
+                    random_state=KMEANS_RANDOM_STATE,
+                    n_init=KMEANS_N_INIT
+                )
+                cluster_labels = kmeans.fit_predict(features)
+                inertias.append(kmeans.inertia_)
+                
+                # Calculate silhouette score
+                try:
+                    silhouette_avg = silhouette_score(features, cluster_labels)
+                    silhouette_scores.append(silhouette_avg)
+                except:
+                    silhouette_scores.append(0)
+    
+    # Find elbow point using second derivative method
+    if len(inertias) > 2:
+        # Calculate second derivative of inertia
+        second_derivative = np.diff(np.diff(inertias))
+        # Find the point with maximum second derivative (elbow)
+        elbow_idx = np.argmax(second_derivative) + 2  # +2 because we lost 2 points in diff
+        optimal_k = k_values[elbow_idx]
+    else:
+        optimal_k = 1
+    
+    # Also consider silhouette score as a secondary criterion
+    if len(silhouette_scores) > 1:
+        best_silhouette_idx = np.argmax(silhouette_scores[1:]) + 1  # Skip k=1
+        best_silhouette_k = k_values[best_silhouette_idx]
+        
+        # If silhouette suggests a different k, use the average
+        if abs(optimal_k - best_silhouette_k) <= 2:
+            optimal_k = (optimal_k + best_silhouette_k) // 2
+    
+    print(f"✅ Optimal k determined: {optimal_k}")
+    return optimal_k
+
+def cluster_images_kmeans(image_paths: List[str], n_clusters: Optional[int] = None) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Any]]:
+    """Cluster images using KMeans with multithreading"""
+    print("📊 Clustering images using KMeans...")
+    features, valid_paths = extract_features_multithreaded(image_paths)
+    
+    if len(features) == 0:
+        return {}, {}
+    
+    if len(features) == 1:
+        return {0: {"paths": valid_paths, "size": 1, "representative": valid_paths[0]}}, {}
+    
+    # Determine optimal number of clusters
+    if n_clusters is None:
+        n_clusters = find_optimal_k_elbow(features)
+    
+    n_clusters = max(1, min(n_clusters, len(features)))
+    
+    print(f"🎯 Using {n_clusters} clusters for {len(features)} images")
+    
+    # Apply clustering
+    kmeans = KMeans(
+        n_clusters=n_clusters,
+        max_iter=KMEANS_MAX_ITER,
+        random_state=KMEANS_RANDOM_STATE,
+        n_init=KMEANS_N_INIT
+    )
+    cluster_labels = kmeans.fit_predict(features)
     
     # Create cluster information
     clusters = {}
     unique_labels = np.unique(cluster_labels)
     
-    for label in unique_labels:
-        if label == -1:  # Noise points
-            continue
+    print("🔧 Processing clusters...")
+    with tqdm(unique_labels, desc="Processing clusters", unit="cluster", ncols=80) as pbar:
+        for label in pbar:
+            cluster_indices = np.where(cluster_labels == label)[0]
+            cluster_paths = [valid_paths[idx] for idx in cluster_indices]
+            cluster_features = features[cluster_indices]
             
-        cluster_indices = np.where(cluster_labels == label)[0]
-        cluster_paths = [valid_paths[idx] for idx in cluster_indices]
-        cluster_features = features[cluster_indices]
-        
-        # Find representative image (closest to cluster center)
-        center = np.mean(cluster_features, axis=0)
-        distances = np.linalg.norm(cluster_features - center, axis=1)
-        representative_idx = np.argmin(distances)
-        
-        clusters[label] = {
-            "size": len(cluster_paths),
-            "representative": cluster_paths[representative_idx],
-            "paths": cluster_paths
-        }
+            # Find representative image
+            cluster_center = kmeans.cluster_centers_[label]
+            distances = np.linalg.norm(cluster_features - cluster_center, axis=1)
+            representative_idx = np.argmin(distances)
+            
+            clusters[int(label)] = {
+                "size": int(len(cluster_paths)),
+                "representative": cluster_paths[representative_idx],
+                "paths": cluster_paths,
+                "center": cluster_center.tolist()
+            }
+            pbar.set_postfix({"size": len(cluster_paths)})
     
-    # Handle noise points as individual clusters
-    noise_indices = np.where(cluster_labels == -1)[0]
-    for i, idx in enumerate(noise_indices):
-        noise_label = f"noise_{i}"
-        clusters[noise_label] = {
-            "size": 1,
-            "representative": valid_paths[idx],
-            "paths": [valid_paths[idx]]
-        }
+    # Clustering metadata
+    cluster_metadata = {
+        "n_clusters": int(n_clusters),
+        "inertia": float(kmeans.inertia_),
+        "n_iter": int(kmeans.n_iter_),
+        "method": "kmeans"
+    }
     
-    # If no clusters found, create a default cluster with all images
-    if not clusters:
-        clusters[0] = {
-            "size": len(valid_paths),
-            "representative": valid_paths[0] if valid_paths else "",
-            "paths": valid_paths
-        }
-    
-    return clusters, {}
+    return clusters, cluster_metadata
 
 def get_image_paths(directory: str, recursive: bool = False) -> List[str]:
     """Get all image paths in a directory"""
     image_paths = []
     
     if recursive:
-        for root, _, files in os.walk(directory):
-            for file in files:
-                if os.path.splitext(file.lower())[1] in IMAGE_EXTENSIONS:
-                    image_paths.append(os.path.join(root, file))
+        # Count total files first for progress bar
+        total_files = sum(len(files) for _, _, files in os.walk(directory))
+        print(f"🔍 Scanning directory recursively ({total_files} files to check)...")
+        
+        with tqdm(total=total_files, desc="Scanning files", unit="file", ncols=80) as pbar:
+            for root, _, files in os.walk(directory):
+                for file in files:
+                    pbar.update(1)
+                    if os.path.splitext(file.lower())[1] in IMAGE_EXTENSIONS:
+                        image_paths.append(os.path.join(root, file))
     else:
-        for file in os.listdir(directory):
-            if os.path.splitext(file.lower())[1] in IMAGE_EXTENSIONS:
-                image_paths.append(os.path.join(directory, file))
+        files = os.listdir(directory)
+        print(f"🔍 Scanning directory ({len(files)} files to check)...")
+        
+        with tqdm(files, desc="Scanning files", unit="file", ncols=80) as pbar:
+            for file in pbar:
+                if os.path.splitext(file.lower())[1] in IMAGE_EXTENSIONS:
+                    image_paths.append(os.path.join(directory, file))
     
+    print(f"📸 Found {len(image_paths)} image files")
     return image_paths
 
 def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
                      aesthetic_threshold: float = DEFAULT_AESTHETIC_THRESHOLD, recursive: bool = False,
-                     skip_duplicates: bool = False, skip_aesthetics: bool = False, limit: int = 0) -> Dict[str, Any]:
+                     skip_duplicates: bool = False, skip_aesthetics: bool = False, limit: int = 0,
+                     n_clusters: Optional[int] = None) -> Dict[str, Any]:
     """Analyze a directory of images using functional approach with robust caching"""
-    import time
     t0 = time.time()
     
     print(f"📁 Analyzing directory: {directory}")
@@ -568,11 +808,11 @@ def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMI
     print(f"📸 Found {len(all_image_paths)} images")
     
     # 2. Generate cache key (excluding limit for stable caching)
-    cache_key = generate_analysis_cache_key(directory, recursive, similarity_threshold, aesthetic_threshold)
+    cache_key = generate_analysis_cache_key(directory, recursive, similarity_threshold, aesthetic_threshold, n_clusters)
     
     # 3. Try to load cached analysis results
     cached_data = load_analysis_cache(cache_key)
-    if cached_data and validate_cache_integrity(cached_data, all_image_paths):
+    if cached_data and validate_cache_integrity(cached_data, all_image_paths, n_clusters):
         print("✅ Using cached analysis results")
         cached_results = cached_data['results']
         
@@ -594,18 +834,41 @@ def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMI
     to_process = []
     
     print("🔍 Checking image cache...")
-    pbar = tqdm(all_image_paths, desc="Checking cache", unit="img", ncols=80)
-    for path in pbar:
-        image_hash = get_image_hash(path)
-        if image_hash:
-            cached_data = load_cached_data(image_hash)
-            
-            if 'features' in cached_data and 'aesthetic_score' in cached_data:
-                cached_features[path] = cached_data['features']
-                cached_scores[path] = cached_data['aesthetic_score']
-            else:
-                to_process.append((path, image_hash))
-    pbar.close()
+    
+    def check_cache_batch(paths_batch):
+        batch_cached_features = {}
+        batch_cached_scores = {}
+        batch_to_process = []
+        
+        for path in paths_batch:
+            image_hash = get_image_hash(path)
+            if image_hash:
+                cached_data = load_cached_data(image_hash)
+                
+                if 'features' in cached_data and 'aesthetic_score' in cached_data:
+                    batch_cached_features[path] = cached_data['features']
+                    batch_cached_scores[path] = cached_data['aesthetic_score']
+                else:
+                    batch_to_process.append((path, image_hash))
+        
+        return batch_cached_features, batch_cached_scores, batch_to_process
+    
+    # Process cache checking in parallel
+    batch_size = max(1, len(all_image_paths) // MAX_WORKERS)
+    batches = [all_image_paths[i:i + batch_size] for i in range(0, len(all_image_paths), batch_size)]
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        with tqdm(total=len(all_image_paths), desc="Checking cache", unit="img", ncols=80) as pbar:
+            futures = [executor.submit(check_cache_batch, batch) for batch in batches]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    batch_cached_features, batch_cached_scores, batch_to_process = future.result()
+                    cached_features.update(batch_cached_features)
+                    cached_scores.update(batch_cached_scores)
+                    to_process.extend(batch_to_process)
+                    pbar.update(len(batch_cached_features))
+                except Exception as e:
+                    logger.error(f"Error in cache check batch: {e}")
     
     # 6. Process new images
     features = {}
@@ -614,28 +877,44 @@ def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMI
         print(f"🔄 Processing {len(to_process)} new images...")
         paths = [p[0] for p in to_process]
         
-        # Feature extraction
-        new_features = process_images_sequential(paths, 'features')
-        # Aesthetic scoring
-        new_scores = process_images_sequential(paths, 'aesthetic')
+        # Extract features and scores in parallel
+        new_features = process_images_multithreaded(paths, 'features')
+        new_scores = process_images_multithreaded(paths, 'aesthetic')
         
         # Store in cache
-        for (path, image_hash) in to_process:
-            feat = new_features.get(path)
-            score = new_scores.get(path)
-            if feat is not None:
-                features[path] = feat
-            if score is not None:
-                scores[path] = score
-            
-            # Save to cache
-            cache_data = {
-                'path': path,
-                'features': feat,
-                'aesthetic_score': score,
-                'last_updated': datetime.now().isoformat()
-            }
-            save_cached_data(image_hash, cache_data)
+        def save_to_cache_batch(batch_to_process):
+            for (path, image_hash) in batch_to_process:
+                feat = new_features.get(path)
+                score = new_scores.get(path)
+                if feat is not None:
+                    features[path] = feat
+                if score is not None:
+                    scores[path] = score
+                
+                # Save to cache
+                cache_data = {
+                    'path': path,
+                    'features': feat,
+                    'aesthetic_score': score,
+                    'last_updated': datetime.now().isoformat()
+                }
+                save_cached_data(image_hash, cache_data)
+        
+        # Save to cache in parallel
+        cache_batch_size = max(1, len(to_process) // MAX_WORKERS)
+        cache_batches = [to_process[i:i + cache_batch_size] for i in range(0, len(to_process), cache_batch_size)]
+        
+        print("💾 Saving to cache...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            with tqdm(total=len(to_process), desc="Saving cache", unit="img", ncols=80) as pbar:
+                futures = [executor.submit(save_to_cache_batch, batch) for batch in cache_batches]
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        future.result()
+                        # Update progress based on batch size
+                        pbar.update(cache_batch_size)
+                    except Exception as e:
+                        logger.error(f"Error saving cache batch: {e}")
     
     # Merge cached and new
     features.update(cached_features)
@@ -646,7 +925,7 @@ def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMI
     # 7. Duplicate detection
     duplicates = []
     if not skip_duplicates:
-        duplicates = find_duplicates_sequential(all_image_paths, threshold=similarity_threshold)
+        duplicates = find_duplicates_multithreaded(all_image_paths, threshold=similarity_threshold)
     
     t2 = time.time()
     
@@ -654,11 +933,7 @@ def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMI
     clusters = {}
     cluster_features = {}
     if not skip_aesthetics:
-        cluster_result = cluster_images_dbscan(all_image_paths)
-        if isinstance(cluster_result, tuple):
-            clusters, cluster_features = cluster_result
-        else:
-            clusters = cluster_result
+        clusters, cluster_features = cluster_images_kmeans(all_image_paths, n_clusters)
     
     t3 = time.time()
     
@@ -689,7 +964,8 @@ def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMI
             'analysis_params': {
                 'similarity_threshold': similarity_threshold,
                 'aesthetic_threshold': aesthetic_threshold,
-                'recursive': recursive
+                'recursive': recursive,
+                'n_clusters': n_clusters
             },
             'results': full_results,
             'timestamp': datetime.now().isoformat()
@@ -708,7 +984,7 @@ def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMI
     return results
 
 def format_results_for_frontend(results: Dict[str, Any]) -> Dict[str, Any]:
-    """Format analysis results for frontend display"""
+    """Format analysis results for frontend display with proper JSON serialization"""
     try:
         images = []
         clusters = []
@@ -721,24 +997,49 @@ def format_results_for_frontend(results: Dict[str, Any]) -> Dict[str, Any]:
             duplicate_paths.update(group)
         
         # Process clusters
-        for cluster_id, cluster_data in results['clusters'].items():
-            clusters.append({
-                'id': cluster_id,
-                'size': cluster_data['size'],
-                'representative': cluster_data['representative'],
-                'paths': cluster_data['paths']
-            })
-            
-            # Add images from this cluster
-            for path in cluster_data['paths']:
-                images.append({
-                    'path': path,
-                    'cluster': cluster_id,
-                    'cluster_size': cluster_data['size'],
-                    'is_duplicate': path in duplicate_paths,
-                    'is_low_aesthetic': results['aesthetic_scores'].get(path, 0) < DEFAULT_AESTHETIC_THRESHOLD,
-                    'aesthetic_score': results['aesthetic_scores'].get(path, 0)
+        total_clusters = len(results['clusters'])
+        if total_clusters > 10:  # Only show progress for large datasets
+            print("📊 Formatting cluster data...")
+            with tqdm(results['clusters'].items(), desc="Processing clusters", unit="cluster", ncols=80) as pbar:
+                for cluster_id, cluster_data in pbar:
+                    clusters.append({
+                        'id': int(cluster_id),
+                        'size': int(cluster_data['size']),
+                        'representative': cluster_data['representative'],
+                        'paths': cluster_data['paths']
+                    })
+                    
+                    # Add images from this cluster
+                    for path in cluster_data['paths']:
+                        images.append({
+                            'path': path,
+                            'cluster': int(cluster_id),
+                            'cluster_size': int(cluster_data['size']),
+                            'is_duplicate': path in duplicate_paths,
+                            'is_low_aesthetic': float(results['aesthetic_scores'].get(path, 0)) < DEFAULT_AESTHETIC_THRESHOLD,
+                            'aesthetic_score': float(results['aesthetic_scores'].get(path, 0))
+                        })
+                    pbar.set_postfix({"size": len(cluster_data['paths'])})
+        else:
+            # Process clusters without progress bar for small datasets
+            for cluster_id, cluster_data in results['clusters'].items():
+                clusters.append({
+                    'id': int(cluster_id),
+                    'size': int(cluster_data['size']),
+                    'representative': cluster_data['representative'],
+                    'paths': cluster_data['paths']
                 })
+                
+                # Add images from this cluster
+                for path in cluster_data['paths']:
+                    images.append({
+                        'path': path,
+                        'cluster': int(cluster_id),
+                        'cluster_size': int(cluster_data['size']),
+                        'is_duplicate': path in duplicate_paths,
+                        'is_low_aesthetic': float(results['aesthetic_scores'].get(path, 0)) < DEFAULT_AESTHETIC_THRESHOLD,
+                        'aesthetic_score': float(results['aesthetic_scores'].get(path, 0))
+                    })
         
         # Process all images that are not in any cluster (noise points)
         clustered_paths = set()
@@ -746,15 +1047,29 @@ def format_results_for_frontend(results: Dict[str, Any]) -> Dict[str, Any]:
             clustered_paths.update(cluster_data['paths'])
         
         # Add images that are not in any cluster
-        for path in results.get('all_image_paths', []):
-            if path not in clustered_paths:
+        unclustered_paths = [path for path in results.get('all_image_paths', []) if path not in clustered_paths]
+        if len(unclustered_paths) > 100:  # Only show progress for large datasets
+            print("📊 Processing unclustered images...")
+            with tqdm(unclustered_paths, desc="Processing unclustered", unit="img", ncols=80) as pbar:
+                for path in pbar:
+                    images.append({
+                        'path': path,
+                        'cluster': -1,  # -1 indicates no cluster (noise point)
+                        'cluster_size': 1,
+                        'is_duplicate': path in duplicate_paths,
+                        'is_low_aesthetic': float(results['aesthetic_scores'].get(path, 0)) < DEFAULT_AESTHETIC_THRESHOLD,
+                        'aesthetic_score': float(results['aesthetic_scores'].get(path, 0))
+                    })
+        else:
+            # Process without progress bar for small datasets
+            for path in unclustered_paths:
                 images.append({
                     'path': path,
                     'cluster': -1,  # -1 indicates no cluster (noise point)
                     'cluster_size': 1,
                     'is_duplicate': path in duplicate_paths,
-                    'is_low_aesthetic': results['aesthetic_scores'].get(path, 0) < DEFAULT_AESTHETIC_THRESHOLD,
-                    'aesthetic_score': results['aesthetic_scores'].get(path, 0)
+                    'is_low_aesthetic': float(results['aesthetic_scores'].get(path, 0)) < DEFAULT_AESTHETIC_THRESHOLD,
+                    'aesthetic_score': float(results['aesthetic_scores'].get(path, 0))
                 })
         
         # Process duplicates
@@ -764,12 +1079,15 @@ def format_results_for_frontend(results: Dict[str, Any]) -> Dict[str, Any]:
         # Process low aesthetic images
         low_aesthetic = results['low_aesthetic']
         
-        return {
+        # Ensure all data is JSON serializable
+        formatted_results = {
             'images': images,
             'clusters': clusters,
             'duplicates': duplicates,
             'low_aesthetic': low_aesthetic
         }
+        
+        return safe_convert_numpy(formatted_results)
     except Exception as e:
         logger.error(f"Error formatting results: {str(e)}")
         return {
@@ -805,7 +1123,8 @@ def analyze():
             'recursive': bool(data.get('recursive', True)),
             'skip_duplicates': bool(data.get('skip_duplicates', False)),
             'skip_aesthetics': bool(data.get('skip_aesthetics', False)),
-            'limit': int(data.get('limit', 0))
+            'limit': int(data.get('limit', 0)),
+            'n_clusters': data.get('n_clusters')  # Optional, will use elbow method if not provided
         }
 
         # Perform analysis
@@ -816,14 +1135,16 @@ def analyze():
             recursive=params['recursive'],
             skip_duplicates=params['skip_duplicates'],
             skip_aesthetics=params['skip_aesthetics'],
-            limit=params['limit']
+            limit=params['limit'],
+            n_clusters=params['n_clusters']
         )
 
         formatted_results = format_results_for_frontend(results)
         
+        # Ensure response is JSON serializable
         response = {
             'success': True,
-            'images': formatted_results['images']
+            'images': safe_convert_numpy(formatted_results['images'])
         }
         return jsonify(response)
 
@@ -912,6 +1233,55 @@ def clear_cache_endpoint():
         logger.error(f"Error clearing cache: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/cluster', methods=['POST'])
+def cluster_images():
+    """Cluster images with custom parameters"""
+    try:
+        data = request.get_json()
+        directory = data.get('directory')
+        n_clusters = data.get('n_clusters')  # Optional, will use elbow method if not provided
+        recursive = bool(data.get('recursive', True))
+        
+        if not directory:
+            return jsonify({'success': False, 'error': 'Directory is required'}), 400
+        
+        # Get image paths
+        image_paths = get_image_paths(directory, recursive)
+        
+        if not image_paths:
+            return jsonify({'success': False, 'error': 'No images found in directory'}), 400
+        
+        # Perform clustering
+        clusters, metadata = cluster_images_kmeans(image_paths, n_clusters)
+        
+        # Format results for frontend
+        formatted_clusters = []
+        for cluster_id, cluster_data in clusters.items():
+            formatted_clusters.append({
+                'id': int(cluster_id),
+                'size': int(cluster_data['size']),
+                'representative': cluster_data['representative'],
+                'paths': cluster_data['paths'],
+                'center': cluster_data.get('center', [])
+            })
+        
+        # Ensure all data is JSON serializable
+        response_data = {
+            'success': True,
+            'clusters': formatted_clusters,
+            'metadata': safe_convert_numpy(metadata),
+            'total_images': int(len(image_paths))
+        }
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error during clustering: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/cache/validate', methods=['POST'])
 def validate_cache():
     """Validate cache integrity for a directory"""
@@ -926,7 +1296,7 @@ def validate_cache():
         current_paths = get_image_paths(directory, recursive)
         
         # Generate cache key
-        cache_key = generate_analysis_cache_key(directory, recursive, similarity_threshold, aesthetic_threshold)
+        cache_key = generate_analysis_cache_key(directory, recursive, similarity_threshold, aesthetic_threshold, None)
         
         # Try to load cache
         cached_data = load_analysis_cache(cache_key)
@@ -956,8 +1326,13 @@ def main():
     """Main entry point for the application"""
     try:
         print(f"🚀 Wallpaper Analyzer V2 starting...")
+        
+        # Initialize models with progress
+        initialize_models()
+        
         print(f"🌐 Server running at http://localhost:{PORT}")
         print("✅ Caching system enabled")
+        print("✅ Progress bars enabled for all operations")
         app.run(
             host=HOST,
             port=PORT,

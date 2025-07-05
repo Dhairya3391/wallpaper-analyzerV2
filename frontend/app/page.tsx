@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -54,6 +55,7 @@ export default function Home() {
 
   const { toast } = useToast();
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const isMobile = useIsMobile();
 
   const [settings, setSettings] = useState({
     directory: "/Users/dhairya/Downloads/walls",
@@ -242,16 +244,20 @@ export default function Home() {
       <div className="min-h-screen bg-background transition-colors duration-300">
         <Header onSettingsClick={() => setIsSettingsOpen(true)} />
 
-        <main className="container mx-auto px-6 py-12">
+        <main
+          className={`container mx-auto ${isMobile ? "px-4 py-8" : "px-6 py-12"}`}
+        >
           {/* Hero Section */}
-          <div className="text-center mb-20">
+          <div className={`text-center ${isMobile ? "mb-12" : "mb-20"}`}>
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="space-y-8"
             >
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-8 leading-tight">
+              <h1
+                className={`${isMobile ? "text-3xl md:text-4xl" : "text-5xl md:text-6xl lg:text-7xl"} font-bold text-foreground mb-8 leading-tight`}
+              >
                 Beautiful wallpapers,{" "}
                 <span className="gradient-text">organized by AI</span>
               </h1>
@@ -260,7 +266,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6 }}
-                className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed"
+                className={`${isMobile ? "text-lg md:text-xl" : "text-xl md:text-2xl"} text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed`}
               >
                 Discover, analyze, and curate your perfect image collection with
                 advanced AI algorithms and beautiful design.
