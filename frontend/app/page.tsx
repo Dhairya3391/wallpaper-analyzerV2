@@ -177,51 +177,64 @@ export default function Home() {
 
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-background transition-colors duration-300">
         <Header onSettingsClick={() => setIsSettingsOpen(true)} />
 
         <main className="container mx-auto px-4 py-8">
           {/* Hero Section */}
-          <div className="text-center mb-12">
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
+          <div className="text-center mb-16">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-5xl font-bold text-gray-900 mb-4"
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="space-y-6"
             >
-              Beautiful wallpapers,{" "}
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                organized by AI
-              </span>
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto"
-            >
-              Discover, analyze, and curate your perfect image collection with
-              advanced AI algorithms and beautiful design.
-            </motion.p>
-
-            <SearchBar
-              value={settings.directory}
-              onChange={(value) =>
-                setSettings((s) => ({ ...s, directory: value }))
-              }
-              onAnalyze={analyzeDirectory}
-              isLoading={isLoading}
-              placeholder="Enter directory path (e.g. /Users/yourname/Pictures)"
-            />
-
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700"
+              <h1 className="text-6xl md:text-7xl font-bold text-foreground mb-6 leading-tight">
+                Beautiful wallpapers,{" "}
+                <span className="gradient-text animate-gradient">
+                  organized by AI
+                </span>
+              </h1>
+              
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.6 }}
+                className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed"
               >
-                {error}
+                Discover, analyze, and curate your perfect image collection with
+                advanced AI algorithms and beautiful design.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.6 }}
+              >
+                <SearchBar
+                  value={settings.directory}
+                  onChange={(value) =>
+                    setSettings((s) => ({ ...s, directory: value }))
+                  }
+                  onAnalyze={analyzeDirectory}
+                  isLoading={isLoading}
+                  placeholder="Enter directory path (e.g. /Users/yourname/Pictures)"
+                />
               </motion.div>
-            )}
+
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="mt-6 p-4 glass border border-red-200 dark:border-red-800 rounded-2xl text-red-700 dark:text-red-300 max-w-md mx-auto"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    {error}
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
           </div>
 
           {/* Filter Tabs */}
@@ -229,7 +242,8 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-8"
+              transition={{ delay: 0.2 }}
+              className="mb-12"
             >
               <FilterTabs
                 clusters={clusters}
@@ -248,10 +262,36 @@ export default function Home() {
 
           {/* Loading State */}
           {isLoading && (
-            <div className="flex flex-col items-center justify-center py-20">
-              <LoadingSpinner size="large" />
-              <p className="mt-4 text-gray-600">Analyzing your images...</p>
-            </div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center py-24"
+            >
+              <div className="relative">
+                <LoadingSpinner size="large" />
+                <motion.div
+                  className="absolute inset-0 rounded-full border-2 border-primary/20"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                />
+              </div>
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="mt-6 text-muted-foreground text-lg"
+              >
+                Analyzing your images with AI...
+              </motion.p>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="mt-2 text-sm text-muted-foreground/60"
+              >
+                This may take a few moments
+              </motion.div>
+            </motion.div>
           )}
 
           {/* Empty State */}
@@ -267,7 +307,7 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.6 }}
             >
               <ImageMasonry
                 images={displayedImages}
@@ -278,17 +318,33 @@ export default function Home() {
               {hasMore && (
                 <div
                   ref={loadMoreRef}
-                  className="flex justify-center py-8"
+                  className="flex justify-center py-12"
                 >
-                  <LoadingSpinner />
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 px-6 py-3 glass rounded-full border border-border/50"
+                  >
+                    <LoadingSpinner />
+                    <span className="text-sm text-muted-foreground">Loading more images...</span>
+                  </motion.div>
                 </div>
               )}
 
               {/* End Message */}
               {!hasMore && displayedImages.length > 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  You've reached the end of the collection
-                </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-12"
+                >
+                  <div className="inline-flex items-center gap-2 px-6 py-3 glass rounded-full border border-border/50">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-sm text-muted-foreground">
+                      You've reached the end of the collection
+                    </span>
+                  </div>
+                </motion.div>
               )}
             </motion.div>
           )}
