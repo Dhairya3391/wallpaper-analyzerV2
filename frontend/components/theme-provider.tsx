@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "light" | "dark" | "ocean" | "sunset" | "forest" | "purple" | "midnight" | "system";
+type Theme = "light" | "dark" | "system";
 
 type ThemeProviderProps = {
   children: React.ReactNode;
@@ -10,7 +10,6 @@ type ThemeProviderProps = {
   storageKey?: string;
   attribute?: string;
   enableSystem?: boolean;
-  disableTransitionOnChange?: boolean;
 };
 
 type ThemeProviderState = {
@@ -22,7 +21,7 @@ type ThemeProviderState = {
 const initialState: ThemeProviderState = {
   theme: "system",
   setTheme: () => null,
-  themes: ["light", "dark", "ocean", "sunset", "forest", "purple", "midnight", "system"],
+  themes: ["light", "dark", "system"],
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
@@ -33,7 +32,6 @@ export function ThemeProvider({
   storageKey = "wallyzer-theme",
   attribute = "class",
   enableSystem = true,
-  disableTransitionOnChange = false,
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(
@@ -43,7 +41,7 @@ export function ThemeProvider({
   useEffect(() => {
     const root = window.document.documentElement;
 
-    root.classList.remove("light", "dark", "ocean", "sunset", "forest", "purple", "midnight");
+    root.classList.remove("light", "dark");
 
     if (theme === "system" && enableSystem) {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")

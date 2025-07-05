@@ -180,18 +180,18 @@ export default function Home() {
       <div className="min-h-screen bg-background transition-colors duration-300">
         <Header onSettingsClick={() => setIsSettingsOpen(true)} />
 
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-6 py-12">
           {/* Hero Section */}
-          <div className="text-center mb-16">
+          <div className="text-center mb-20">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="space-y-6"
+              className="space-professional-lg"
             >
-              <h1 className="text-6xl md:text-7xl font-bold text-foreground mb-6 leading-tight">
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-professional-heading mb-8 leading-tight">
                 Beautiful wallpapers,{" "}
-                <span className="gradient-text animate-gradient">
+                <span className="gradient-text">
                   organized by AI
                 </span>
               </h1>
@@ -200,7 +200,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6 }}
-                className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed"
+                className="text-xl md:text-2xl text-professional-muted mb-12 max-w-3xl mx-auto leading-relaxed"
               >
                 Discover, analyze, and curate your perfect image collection with
                 advanced AI algorithms and beautiful design.
@@ -226,10 +226,10 @@ export default function Home() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="mt-6 p-4 glass border border-red-200 dark:border-red-800 rounded-2xl text-red-700 dark:text-red-300 max-w-md mx-auto"
+                  className="mt-8 p-4 glass border border-destructive/20 rounded-2xl text-destructive max-w-md mx-auto"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <div className="w-2 h-2 rounded-full bg-destructive" />
                     {error}
                   </div>
                 </motion.div>
@@ -243,7 +243,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="mb-12"
+              className="mb-16"
             >
               <FilterTabs
                 clusters={clusters}
@@ -265,7 +265,7 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center py-24"
+              className="flex flex-col items-center justify-center py-32"
             >
               <div className="relative">
                 <LoadingSpinner size="large" />
@@ -279,7 +279,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="mt-6 text-muted-foreground text-lg"
+                className="mt-8 text-professional-muted text-lg"
               >
                 Analyzing your images with AI...
               </motion.p>
@@ -287,7 +287,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.7 }}
-                className="mt-2 text-sm text-muted-foreground/60"
+                className="mt-2 text-sm text-professional-muted opacity-60"
               >
                 This may take a few moments
               </motion.div>
@@ -318,7 +318,7 @@ export default function Home() {
               {hasMore && (
                 <div
                   ref={loadMoreRef}
-                  className="flex justify-center py-12"
+                  className="flex justify-center py-16"
                 >
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -326,7 +326,7 @@ export default function Home() {
                     className="flex items-center gap-3 px-6 py-3 glass rounded-full border border-border/50"
                   >
                     <LoadingSpinner />
-                    <span className="text-sm text-muted-foreground">Loading more images...</span>
+                    <span className="text-sm text-professional-muted">Loading more images...</span>
                   </motion.div>
                 </div>
               )}
@@ -336,11 +336,11 @@ export default function Home() {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-center py-12"
+                  className="text-center py-16"
                 >
                   <div className="inline-flex items-center gap-2 px-6 py-3 glass rounded-full border border-border/50">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="text-sm text-muted-foreground">
+                    <div className="w-2 h-2 rounded-full bg-accent" />
+                    <span className="text-sm text-professional-muted">
                       You've reached the end of the collection
                     </span>
                   </div>

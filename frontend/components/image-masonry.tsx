@@ -42,7 +42,7 @@ function MasonryImage({
           observer.disconnect();
         }
       },
-      { rootMargin: "50px" }
+      { rootMargin: "100px" }
     );
 
     if (ref.current) {
@@ -61,13 +61,13 @@ function MasonryImage({
       ref={ref}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.05 }}
-      className="break-inside-avoid mb-4 group cursor-pointer"
+      transition={{ duration: 0.5, delay: index * 0.02 }}
+      className="masonry-item group cursor-pointer"
       onClick={() => onImageClick(image)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="relative overflow-hidden rounded-lg bg-gray-100 shadow-sm hover:shadow-xl transition-all duration-300">
+      <div className="relative overflow-hidden rounded-xl bg-muted/20 shadow-soft hover:shadow-strong transition-all duration-300 card-interactive">
         {isInView && (
           <ImageWithRipple
             src={`${BACKEND_URL}/api/image?path=${encodeURIComponent(image.path)}`}
@@ -85,21 +85,21 @@ function MasonryImage({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"
+              className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"
             >
               <div className="absolute top-3 right-3 flex flex-col gap-2">
                 {image.cluster !== undefined && image.cluster !== -1 && (
-                  <Badge variant="secondary" className="bg-white/90 text-gray-900">
+                  <Badge variant="secondary" className="glass text-xs">
                     Cluster {image.cluster}
                   </Badge>
                 )}
                 {image.is_duplicate && (
-                  <Badge variant="destructive" className="bg-red-500/90">
+                  <Badge variant="destructive" className="text-xs">
                     Duplicate
                   </Badge>
                 )}
                 {image.is_low_aesthetic && (
-                  <Badge variant="outline" className="bg-yellow-500/90 text-white border-yellow-500">
+                  <Badge variant="outline" className="glass text-xs border-yellow-500/50 text-yellow-600">
                     Low Score
                   </Badge>
                 )}
@@ -121,7 +121,7 @@ function MasonryImage({
 
         {/* Loading placeholder */}
         {!isLoaded && isInView && (
-          <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+          <div className="absolute inset-0 loading-skeleton" />
         )}
       </div>
     </motion.div>
@@ -154,24 +154,14 @@ export function ImageMasonry({ images, onImageClick }: ImageMasonryProps) {
 
   return (
     <div className="w-full">
-      <div 
-        className="flex gap-4"
-        style={{ 
-          columnCount: columns,
-          columnGap: '1rem'
-        }}
-      >
-        {columnArrays.map((columnImages, columnIndex) => (
-          <div key={columnIndex} className="flex-1 space-y-4">
-            {columnImages.map((image, imageIndex) => (
-              <MasonryImage
-                key={image.path}
-                image={image}
-                index={columnIndex * Math.ceil(images.length / columns) + imageIndex}
-                onImageClick={onImageClick}
-              />
-            ))}
-          </div>
+      <div className="masonry-container" style={{ columns }}>
+        {images.map((image, index) => (
+          <MasonryImage
+            key={image.path}
+            image={image}
+            index={index}
+            onImageClick={onImageClick}
+          />
         ))}
       </div>
     </div>

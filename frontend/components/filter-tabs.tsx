@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Search, X, Filter, TrendingUp } from "lucide-react";
+import { Search, X, Filter, TrendingUp, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
@@ -53,7 +53,7 @@ export function FilterTabs({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-professional">
       {/* Search Bar */}
       <div className="flex justify-center">
         <motion.div
@@ -92,7 +92,7 @@ export function FilterTabs({
       </div>
 
       {/* Filter Header */}
-      <div className="flex items-center justify-center gap-2 text-muted-foreground">
+      <div className="flex items-center justify-center gap-2 text-professional-muted">
         <Filter className="w-4 h-4" />
         <span className="text-sm font-medium">Filter by category</span>
       </div>
@@ -100,15 +100,15 @@ export function FilterTabs({
       {/* Filter Tabs */}
       <div className="flex flex-wrap justify-center gap-3">
         <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           transition={{ type: "spring", stiffness: 400, damping: 17 }}
         >
           <Badge
             variant={selectedCluster === "all" && !showDuplicates ? "default" : "outline"}
             className={`cursor-pointer px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
               selectedCluster === "all" && !showDuplicates
-                ? "gradient-primary text-white shadow-glow hover:shadow-luxury"
+                ? "btn-primary shadow-medium"
                 : "glass hover:bg-muted/50 border-border/50"
             }`}
             onClick={() => handleTabClick("all")}
@@ -124,8 +124,8 @@ export function FilterTabs({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.05 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             <Badge
               variant={
@@ -135,7 +135,7 @@ export function FilterTabs({
               }
               className={`cursor-pointer px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
                 selectedCluster === cluster.id.toString() && !showDuplicates
-                  ? "gradient-primary text-white shadow-glow hover:shadow-luxury"
+                  ? "btn-primary shadow-medium"
                   : "glass hover:bg-muted/50 border-border/50"
               }`}
               onClick={() => handleTabClick(cluster.id.toString())}
@@ -151,19 +151,19 @@ export function FilterTabs({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: clusters.length * 0.05 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             <Badge
               variant={showDuplicates ? "default" : "outline"}
               className={`cursor-pointer px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
                 showDuplicates
-                  ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-glow hover:shadow-luxury"
+                  ? "bg-destructive text-destructive-foreground shadow-medium"
                   : "glass hover:bg-muted/50 border-border/50"
               }`}
               onClick={() => handleTabClick("duplicates")}
             >
-              <div className="w-2 h-2 rounded-full bg-current mr-2" />
+              <Copy className="w-4 h-4 mr-2" />
               Duplicates
             </Badge>
           </motion.div>
@@ -179,9 +179,9 @@ export function FilterTabs({
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 glass rounded-full border border-border/50">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-sm text-muted-foreground">
-              Showing <span className="font-semibold text-foreground">{filteredCount}</span> of{" "}
-              <span className="font-semibold text-foreground">{totalImages}</span> images
+            <span className="text-sm text-professional-muted">
+              Showing <span className="font-semibold text-professional">{filteredCount}</span> of{" "}
+              <span className="font-semibold text-professional">{totalImages}</span> images
             </span>
           </div>
         </motion.div>

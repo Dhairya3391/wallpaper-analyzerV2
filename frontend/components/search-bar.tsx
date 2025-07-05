@@ -31,9 +31,9 @@ export function SearchBar({
       className="max-w-2xl mx-auto"
     >
       <div
-        className={`relative flex items-center glass border-2 rounded-2xl shadow-luxury transition-all duration-300 ${
+        className={`relative flex items-center glass border-2 rounded-2xl shadow-medium transition-all duration-300 ${
           isFocused
-            ? "border-primary/50 shadow-glow"
+            ? "border-primary/50 shadow-strong"
             : "border-border/50 hover:border-border"
         }`}
       >
@@ -56,12 +56,12 @@ export function SearchBar({
         <Button
           onClick={onAnalyze}
           disabled={isLoading || !value.startsWith("/")}
-          className="mr-2 rounded-xl gradient-primary hover:shadow-glow text-white px-6 py-2 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed btn-gradient"
+          className="mr-2 rounded-xl btn-primary px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <div className="flex items-center">
               <motion.div 
-                className="w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"
+                className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full mr-2"
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               />
@@ -80,9 +80,9 @@ export function SearchBar({
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
+          className="mt-4 p-4 glass border border-destructive/20 rounded-xl"
         >
-          <p className="text-sm text-amber-700 dark:text-amber-300 text-center">
+          <p className="text-sm text-destructive text-center">
             💡 Please enter an absolute path (starting with /)
           </p>
         </motion.div>
