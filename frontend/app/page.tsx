@@ -341,7 +341,7 @@ export default function Home() {
                   <div className="inline-flex items-center gap-2 px-6 py-3 glass rounded-full border border-border/50">
                     <div className="w-2 h-2 rounded-full bg-accent" />
                     <span className="text-sm text-professional-muted">
-                      You've reached the end of the collection
+                      You&apos;ve reached the end of the collection
                     </span>
                   </div>
                 </motion.div>

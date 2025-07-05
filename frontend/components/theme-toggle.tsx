@@ -84,7 +84,7 @@ export function ThemeToggle() {
         {themes.map((themeOption) => (
           <DropdownMenuItem
             key={themeOption.name}
-            onClick={() => setTheme(themeOption.name as any)}
+            onClick={() => setTheme(themeOption.name as "light" | "dark" | "system")}
             className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-muted/50 transition-all duration-200"
           >
             <themeOption.icon className="w-4 h-4" />

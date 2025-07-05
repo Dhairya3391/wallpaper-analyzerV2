@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 interface RippleEffect {
   id: number;
@@ -16,31 +17,40 @@ interface ImageWithRippleProps {
   className?: string;
 }
 
-export function ImageWithRipple({ src, alt, onLoad, className }: ImageWithRippleProps) {
+export function ImageWithRipple({
+  src,
+  alt,
+  onLoad,
+  className,
+}: ImageWithRippleProps) {
   const [ripples, setRipples] = useState<RippleEffect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const imageRef = useRef<HTMLImageElement>(null);
   const rippleIdRef = useRef(0);
 
-  const createRipple = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+  const createRipple = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
 
-    const newRipple: RippleEffect = {
-      id: rippleIdRef.current++,
-      x,
-      y,
-    };
+      const newRipple: RippleEffect = {
+        id: rippleIdRef.current++,
+        x,
+        y,
+      };
 
-    setRipples(prev => [...prev, newRipple]);
+      setRipples((prev) => [...prev, newRipple]);
 
-    // Remove ripple after animation
-    setTimeout(() => {
-      setRipples(prev => prev.filter(ripple => ripple.id !== newRipple.id));
-    }, 600);
-  }, []);
+      // Remove ripple after animation
+      setTimeout(() => {
+        setRipples((prev) =>
+          prev.filter((ripple) => ripple.id !== newRipple.id)
+        );
+      }, 600);
+    },
+    []
+  );
 
   const handleImageLoad = () => {
     setIsLoading(false);
@@ -53,7 +63,7 @@ export function ImageWithRipple({ src, alt, onLoad, className }: ImageWithRipple
   };
 
   return (
-    <div 
+    <div
       className="relative overflow-hidden cursor-pointer"
       onClick={createRipple}
     >
@@ -68,8 +78,16 @@ export function ImageWithRipple({ src, alt, onLoad, className }: ImageWithRipple
       {hasError && (
         <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center">
           <div className="text-center text-gray-400">
-            <svg className="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+            <svg
+              className="w-12 h-12 mx-auto mb-2"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                clipRule="evenodd"
+              />
             </svg>
             <p className="text-sm">Failed to load</p>
           </div>
@@ -77,14 +95,17 @@ export function ImageWithRipple({ src, alt, onLoad, className }: ImageWithRipple
       )}
 
       {/* Image */}
-      <img
-        ref={imageRef}
+      <Image
         src={src}
         alt={alt}
         onLoad={handleImageLoad}
         onError={handleImageError}
-        className={`${className} ${isLoading || hasError ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
-        loading="lazy"
+        className={`${className} ${
+          isLoading || hasError ? "opacity-0" : "opacity-100"
+        } transition-opacity duration-300`}
+        fill
+        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        style={{ objectFit: "cover" }}
       />
 
       {/* Ripple effects */}
