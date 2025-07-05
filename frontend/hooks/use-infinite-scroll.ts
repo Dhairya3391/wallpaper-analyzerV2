@@ -31,7 +31,7 @@ export function useInfiniteScroll({
       {
         threshold,
         rootMargin,
-      }
+      },
     );
 
     observerRef.current.observe(target.current);

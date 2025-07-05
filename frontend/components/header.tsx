@@ -27,19 +27,19 @@ export function Header({ onSettingsClick }: HeaderProps) {
           >
             <div className="relative group">
               <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-medium group-hover:shadow-strong transition-all duration-300">
-                <span className="text-primary-foreground font-bold text-lg">W</span>
+                <span className="text-primary-foreground font-bold text-lg">
+                  W
+                </span>
               </div>
-              <motion.div 
+              <motion.div
                 className="absolute -top-1 -right-1 w-3 h-3 bg-accent rounded-full"
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
               />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-professional-heading">
-                Wallyzer
-              </h1>
-              <p className="text-xs text-professional-muted">AI Image Curator</p>
+              <h1 className="text-xl font-bold text-foreground">Wallyzer</h1>
+              <p className="text-xs text-muted-foreground">AI Image Curator</p>
             </div>
           </motion.div>
 
@@ -49,14 +49,20 @@ export function Header({ onSettingsClick }: HeaderProps) {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="flex items-center space-x-3"
           >
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="hidden sm:flex btn-ghost"
+            <a
+              href="https://github.com/Dhairya3391/wallpaper-analyzerV2"
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              <Github className="w-4 h-4 mr-2" />
-              GitHub
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hidden sm:flex btn-ghost"
+              >
+                <Github className="w-4 h-4 mr-2" />
+                GitHub
+              </Button>
+            </a>
             <Button
               variant="ghost"
               size="sm"

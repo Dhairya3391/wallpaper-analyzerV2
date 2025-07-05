@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { motion } from "framer-motion";
 import { Header } from "@/components/header";
-import { ImageMasonry } from "@/components/image-masonry";
+import MasonryGallery from "@/components/masonry-gallery";
 import { SearchBar } from "@/components/search-bar";
 import { FilterTabs } from "@/components/filter-tabs";
 import { SettingsPanel } from "@/components/settings-panel";
-import { ImagePreview } from "@/components/image-preview";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LoadingSpinner } from "@/components/loading-spinner";
 import { EmptyState } from "@/components/empty-state";
@@ -39,7 +38,6 @@ export default function Home() {
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
@@ -57,67 +55,51 @@ export default function Home() {
     limit: 1000,
   });
 
-  // Filter images based on search and cluster selection
-  const filteredImages = useCallback(() => {
-    let filtered = allImages;
+  const IMAGES_PER_PAGE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
 
-    // Apply search filter
+  const filteredImages = useMemo(() => {
+    let filtered = allImages.filter(
+      (img) => img && typeof img === "object" && img.path
+    );
+
     if (debouncedSearchTerm) {
       filtered = filtered.filter((image) =>
         image.path.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
       );
     }
 
-    // Apply cluster filter
     if (showDuplicates) {
       filtered = filtered.filter((img) => img.is_duplicate);
     } else if (selectedCluster !== "all") {
-      filtered = filtered.filter(
-        (img) => String(img.cluster) === selectedCluster
-      );
+      const clusterId = parseInt(selectedCluster, 10);
+      filtered = filtered.filter((img) => img.cluster === clusterId);
     }
 
     return filtered;
   }, [allImages, debouncedSearchTerm, selectedCluster, showDuplicates]);
 
-  // Infinite scroll implementation
-  const IMAGES_PER_PAGE = 20;
-  const [currentPage, setCurrentPage] = useState(1);
+  useEffect(() => {
+    const newImages = filteredImages.slice(0, IMAGES_PER_PAGE);
+    setDisplayedImages(newImages);
+    setCurrentPage(1);
+  }, [filteredImages]);
 
   const loadMoreImages = useCallback(() => {
-    const filtered = filteredImages();
-    const startIndex = (currentPage - 1) * IMAGES_PER_PAGE;
-    const endIndex = startIndex + IMAGES_PER_PAGE;
-    const newImages = filtered.slice(startIndex, endIndex);
+    const nextPage = currentPage + 1;
+    const startIndex = nextPage * IMAGES_PER_PAGE - IMAGES_PER_PAGE;
+    const endIndex = nextPage * IMAGES_PER_PAGE;
+    const newImages = filteredImages.slice(startIndex, endIndex);
 
-    if (currentPage === 1) {
-      setDisplayedImages(newImages);
-    } else {
-      setDisplayedImages((prev) => [...prev, ...newImages]);
-    }
-  }, [filteredImages, currentPage]);
+    setDisplayedImages((prev) => [...prev, ...newImages]);
+    setCurrentPage(nextPage);
+  }, [currentPage, filteredImages]);
 
-  // Reset pagination when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-    setDisplayedImages([]);
-  }, [debouncedSearchTerm, selectedCluster, showDuplicates]);
-
-  // Load images when page changes
-  useEffect(() => {
-    loadMoreImages();
-  }, [loadMoreImages]);
-
-  // Infinite scroll hook
-  const hasMore = displayedImages.length < filteredImages().length;
+  const hasMore = displayedImages.length < filteredImages.length;
 
   useInfiniteScroll({
     target: loadMoreRef,
-    onIntersect: () => {
-      if (hasMore && !isLoading) {
-        setCurrentPage((prev) => prev + 1);
-      }
-    },
+    onIntersect: loadMoreImages,
     enabled: hasMore && !isLoading,
   });
 
@@ -176,7 +158,7 @@ export default function Home() {
   };
 
   const totalImages = allImages.length;
-  const filteredCount = filteredImages().length;
+  const filteredCount = filteredImages.length;
   const hasDuplicates = allImages.some((img) => img.is_duplicate);
 
   return (
@@ -191,9 +173,9 @@ export default function Home() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="space-professional-lg"
+              className="space-y-8"
             >
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-professional-heading mb-8 leading-tight">
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-8 leading-tight">
                 Beautiful wallpapers,{" "}
                 <span className="gradient-text">organized by AI</span>
               </h1>
@@ -202,7 +184,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6 }}
-                className="text-xl md:text-2xl text-professional-muted mb-12 max-w-3xl mx-auto leading-relaxed"
+                className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed"
               >
                 Discover, analyze, and curate your perfect image collection with
                 advanced AI algorithms and beautiful design.
@@ -281,7 +263,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="mt-8 text-professional-muted text-lg"
+                className="mt-8 text-muted-foreground text-lg"
               >
                 Analyzing your images with AI...
               </motion.p>
@@ -289,7 +271,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.7 }}
-                className="mt-2 text-sm text-professional-muted opacity-60"
+                className="mt-2 text-sm text-muted-foreground opacity-60"
               >
                 This may take a few moments
               </motion.div>
@@ -311,9 +293,21 @@ export default function Home() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6 }}
             >
-              <ImageMasonry
-                images={displayedImages}
-                onImageClick={setSelectedImage}
+              <MasonryGallery
+                images={displayedImages
+                  .filter(
+                    (img) => img && img.path && typeof img.path === "string"
+                  )
+                  .map(
+                    (img) =>
+                      `${BACKEND_URL}/api/image?path=${encodeURIComponent(
+                        img.path
+                      )}`
+                  )}
+                aspectRatio="auto"
+                showThumbnails={true}
+                enableZoom={true}
+                enableFullscreen={true}
               />
 
               {/* Load More Trigger */}
@@ -325,7 +319,7 @@ export default function Home() {
                     className="flex items-center gap-3 px-6 py-3 glass rounded-full border border-border/50"
                   >
                     <LoadingSpinner />
-                    <span className="text-sm text-professional-muted">
+                    <span className="text-sm text-muted-foreground">
                       Loading more images...
                     </span>
                   </motion.div>
@@ -341,7 +335,7 @@ export default function Home() {
                 >
                   <div className="inline-flex items-center gap-2 px-6 py-3 glass rounded-full border border-border/50">
                     <div className="w-2 h-2 rounded-full bg-accent" />
-                    <span className="text-sm text-professional-muted">
+                    <span className="text-sm text-muted-foreground">
                       You&apos;ve reached the end of the collection
                     </span>
                   </div>
@@ -358,16 +352,6 @@ export default function Home() {
           open={isSettingsOpen}
           onOpenChange={setIsSettingsOpen}
         />
-
-        {/* Image Preview */}
-        <AnimatePresence>
-          {selectedImage && (
-            <ImagePreview
-              image={selectedImage}
-              onClose={() => setSelectedImage(null)}
-            />
-          )}
-        </AnimatePresence>
       </div>
     </ThemeProvider>
   );

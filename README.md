@@ -1,10 +1,10 @@
-# 🎨 Wallpaper Analyzer V2
+# 🎨 Wallyzer
 
 A powerful and intelligent wallpaper management system that helps you organize, analyze, and optimize your wallpaper collection using advanced AI and computer vision techniques.
 
-![Wallpaper Analyzer](https://img.shields.io/badge/Wallpaper-Analyzer-blue)
-![Python](https://img.shields.io/badge/Python-3%2E8%2B-green)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+![Wallyzer](httpss://img.shields.io/badge/Wallyzer-blue)
+![Python](httpss://img.shields.io/badge/Python-3%2E8%2B-green)
+![License](httpss://img.shields.io/badge/License-MIT-yellow)
 
 ## ✨ Features
 
@@ -47,8 +47,8 @@ A powerful and intelligent wallpaper management system that helps you organize, 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/wallpaper-analyzerV2.git
-cd wallpaper-analyzerV2
+git clone https://github.com/Dhairya3391/wallpaper-analyzerV2.git
+cd Wallyzer
 ```
 
 2. Create a virtual environment (recommended):
@@ -96,7 +96,7 @@ pnpm dev  # or npm run dev or yarn dev
 ### Start the Backend
 
 ```bash
-python wallpaper_analyzer.py
+python wallyzer.py
 ```
 
 The backend will start on [http://localhost:8000](http://localhost:8000)
@@ -117,7 +117,7 @@ The frontend will start on [http://localhost:3000](http://localhost:3000)
 
 ## ⚙️ Configuration
 
-The application can be configured through the `Config` class in `wallpaper_analyzer.py`:
+The application can be configured through the `Config` class in `wallyzer.py`:
 
 - `DEVICE`: Processing device (CPU/CUDA/MPS)
 - `BATCH_SIZE`: Number of images processed simultaneously (auto-adjusts based on device)
@@ -143,8 +143,8 @@ You can also use environment variables for deployment flexibility (recommended f
 ## 🗂️ Project Structure
 
 ```
-wallpaper-analyzerV2/
-├── wallpaper_analyzer.py      # Backend server and analysis logic
+Wallyzer/
+├── wallyzer.py      # Backend server and analysis logic
 ├── requirements.txt          # Python dependencies
 ├── frontend/                 # Next.js/React frontend
 │   ├── app/                  # Main app pages

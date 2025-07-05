@@ -21,7 +21,7 @@ const themes = [
   },
   {
     name: "dark",
-    label: "Dark", 
+    label: "Dark",
     icon: Moon,
     description: "Easy on the eyes",
   },
@@ -72,19 +72,23 @@ export function ThemeToggle() {
           >
             <currentTheme.icon className="w-4 h-4" />
           </motion.div>
-          <span className="hidden sm:inline font-medium">{currentTheme.label}</span>
+          <span className="hidden sm:inline font-medium">
+            {currentTheme.label}
+          </span>
         </Button>
       </DropdownMenuTrigger>
-      
-      <DropdownMenuContent 
-        align="end" 
+
+      <DropdownMenuContent
+        align="end"
         className="w-48 glass border-border/50"
         sideOffset={8}
       >
         {themes.map((themeOption) => (
           <DropdownMenuItem
             key={themeOption.name}
-            onClick={() => setTheme(themeOption.name as "light" | "dark" | "system")}
+            onClick={() =>
+              setTheme(themeOption.name as "light" | "dark" | "system")
+            }
             className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-muted/50 transition-all duration-200"
           >
             <themeOption.icon className="w-4 h-4" />

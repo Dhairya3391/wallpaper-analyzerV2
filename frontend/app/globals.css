@@ -102,7 +102,9 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -182,7 +184,8 @@ html {
     box-shadow: 0 0 5px hsl(var(--primary) / 0.3);
   }
   50% {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.6),
+    box-shadow:
+      0 0 20px hsl(var(--primary) / 0.6),
       0 0 30px hsl(var(--primary) / 0.3);
   }
 }

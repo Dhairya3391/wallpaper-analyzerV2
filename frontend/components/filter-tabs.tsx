@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Search, X, Filter, TrendingUp, Copy } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+const MotionButton = motion(Button);
 
 interface ClusterData {
   id: number;
@@ -53,7 +55,7 @@ export function FilterTabs({
   };
 
   return (
-    <div className="space-professional">
+    <div className="space-y-4">
       {/* Search Bar */}
       <div className="flex justify-center">
         <motion.div
@@ -65,9 +67,11 @@ export function FilterTabs({
           }`}
         >
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className={`h-5 w-5 transition-colors duration-200 ${
-              isSearchFocused ? "text-primary" : "text-muted-foreground"
-            }`} />
+            <Search
+              className={`h-5 w-5 transition-colors duration-200 ${
+                isSearchFocused ? "text-primary" : "text-muted-foreground"
+              }`}
+            />
           </div>
           <Input
             type="text"
@@ -92,81 +96,74 @@ export function FilterTabs({
       </div>
 
       {/* Filter Header */}
-      <div className="flex items-center justify-center gap-2 text-professional-muted">
+      <div className="flex items-center justify-center gap-2 text-muted-foreground">
         <Filter className="w-4 h-4" />
         <span className="text-sm font-medium">Filter by category</span>
       </div>
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap justify-center gap-3">
-        <motion.div
+        <MotionButton
           whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
           transition={{ type: "spring", stiffness: 400, damping: 17 }}
+          variant={
+            selectedCluster === "all" && !showDuplicates ? "default" : "outline"
+          }
+          size="sm"
+          className={`px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
+            selectedCluster === "all" && !showDuplicates
+              ? "btn-primary shadow-medium"
+              : "glass hover:bg-muted/50 border-border/50"
+          }`}
+          onClick={() => handleTabClick("all")}
         >
-          <Badge
-            variant={selectedCluster === "all" && !showDuplicates ? "default" : "outline"}
-            className={`cursor-pointer px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
-              selectedCluster === "all" && !showDuplicates
-                ? "btn-primary shadow-medium"
-                : "glass hover:bg-muted/50 border-border/50"
-            }`}
-            onClick={() => handleTabClick("all")}
-          >
-            <TrendingUp className="w-4 h-4 mr-2" />
-            All Images ({totalImages})
-          </Badge>
-        </motion.div>
+          <TrendingUp className="w-4 h-4 mr-2" />
+          All Images ({totalImages})
+        </MotionButton>
 
         {clusters.map((cluster, index) => (
-          <motion.div
+          <MotionButton
             key={cluster.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.05 }}
             whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            variant={
+              selectedCluster === cluster.id.toString() && !showDuplicates
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+            className={`px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
+              selectedCluster === cluster.id.toString() && !showDuplicates
+                ? "btn-primary shadow-medium"
+                : "glass hover:bg-muted/50 border-border/50"
+            }`}
+            onClick={() => handleTabClick(cluster.id.toString())}
           >
-            <Badge
-              variant={
-                selectedCluster === cluster.id.toString() && !showDuplicates
-                  ? "default"
-                  : "outline"
-              }
-              className={`cursor-pointer px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
-                selectedCluster === cluster.id.toString() && !showDuplicates
-                  ? "btn-primary shadow-medium"
-                  : "glass hover:bg-muted/50 border-border/50"
-              }`}
-              onClick={() => handleTabClick(cluster.id.toString())}
-            >
-              <div className="w-2 h-2 rounded-full bg-current mr-2" />
-              Cluster {cluster.id} ({cluster.size})
-            </Badge>
-          </motion.div>
+            <div className="w-2 h-2 rounded-full bg-current mr-2" />
+            Cluster {cluster.id} ({cluster.size})
+          </MotionButton>
         ))}
 
         {hasDuplicates && (
-          <motion.div
+          <MotionButton
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: clusters.length * 0.05 }}
             whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            variant={showDuplicates ? "destructive" : "outline"}
+            size="sm"
+            className={`px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
+              showDuplicates
+                ? "shadow-medium"
+                : "glass hover:bg-muted/50 border-border/50"
+            }`}
+            onClick={() => handleTabClick("duplicates")}
           >
-            <Badge
-              variant={showDuplicates ? "default" : "outline"}
-              className={`cursor-pointer px-6 py-3 text-sm font-medium transition-all duration-300 rounded-xl ${
-                showDuplicates
-                  ? "bg-destructive text-destructive-foreground shadow-medium"
-                  : "glass hover:bg-muted/50 border-border/50"
-              }`}
-              onClick={() => handleTabClick("duplicates")}
-            >
-              <Copy className="w-4 h-4 mr-2" />
-              Duplicates
-            </Badge>
-          </motion.div>
+            <Copy className="w-4 h-4 mr-2" />
+            Duplicates
+          </MotionButton>
         )}
       </div>
 
@@ -179,9 +176,16 @@ export function FilterTabs({
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 glass rounded-full border border-border/50">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-sm text-professional-muted">
-              Showing <span className="font-semibold text-professional">{filteredCount}</span> of{" "}
-              <span className="font-semibold text-professional">{totalImages}</span> images
+            <span className="text-sm text-muted-foreground">
+              Showing{" "}
+              <span className="font-semibold text-foreground">
+                {filteredCount}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-foreground">
+                {totalImages}
+              </span>{" "}
+              images
             </span>
           </div>
         </motion.div>

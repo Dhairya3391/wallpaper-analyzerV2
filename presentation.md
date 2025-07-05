@@ -2,7 +2,7 @@
 
 ## Introduction
 
-**Wallpaper Analyzer** is an advanced, AI-powered tool for organizing, analyzing, and optimizing large wallpaper or image collections. It leverages state-of-the-art computer vision and deep learning to automate duplicate detection, aesthetic scoring, and image clustering—all accessible through a modern, real-time web interface.
+**Wallyzer** is an advanced, AI-powered tool for organizing, analyzing, and optimizing large wallpaper or image collections. It leverages state-of-the-art computer vision and deep learning to automate duplicate detection, aesthetic scoring, and image clustering—all accessible through a modern, real-time web interface.
 
 ---
 

@@ -7,7 +7,10 @@ interface LoadingSpinnerProps {
   className?: string;
 }
 
-export function LoadingSpinner({ size = "medium", className = "" }: LoadingSpinnerProps) {
+export function LoadingSpinner({
+  size = "medium",
+  className = "",
+}: LoadingSpinnerProps) {
   const sizeClasses = {
     small: "w-4 h-4",
     medium: "w-8 h-8",

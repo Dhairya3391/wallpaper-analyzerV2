@@ -1,7 +1,6 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 
@@ -52,46 +51,53 @@ export function FilterPanel({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Badge
+            <Button
               variant={
                 selectedCluster === "all" && !showDuplicates
                   ? "default"
                   : "outline"
               }
-              className={`cursor-pointer hover:bg-primary/20 transition-colors ${showDuplicates ? "opacity-50 pointer-events-none" : ""}`}
+              size="sm"
+              className={`hover:bg-primary/20 transition-colors ${
+                showDuplicates ? "opacity-50 pointer-events-none" : ""
+              }`}
               onClick={() => {
                 if (!showDuplicates) onClusterChange("all");
               }}
             >
               All Images (
               {clusters.reduce((sum, cluster) => sum + cluster.size, 0)})
-            </Badge>
+            </Button>
 
             {clusters.map((cluster) => (
-              <Badge
+              <Button
                 key={cluster.id}
                 variant={
                   selectedCluster === cluster.id.toString() && !showDuplicates
                     ? "default"
                     : "outline"
                 }
-                className={`cursor-pointer hover:bg-primary/20 transition-colors ${showDuplicates ? "opacity-50 pointer-events-none" : ""}`}
+                size="sm"
+                className={`hover:bg-primary/20 transition-colors ${
+                  showDuplicates ? "opacity-50 pointer-events-none" : ""
+                }`}
                 onClick={() => {
                   if (!showDuplicates) onClusterChange(cluster.id.toString());
                 }}
               >
                 Cluster {cluster.id} ({cluster.size})
-              </Badge>
+              </Button>
             ))}
 
             {hasDuplicates && onShowDuplicates && (
-              <Badge
-                variant={showDuplicates ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary/20 transition-colors"
+              <Button
+                variant={showDuplicates ? "destructive" : "outline"}
+                size="sm"
+                className="hover:bg-primary/20 transition-colors"
                 onClick={() => onShowDuplicates(!showDuplicates)}
               >
                 Duplicates
-              </Badge>
+              </Button>
             )}
           </div>
         </motion.div>
