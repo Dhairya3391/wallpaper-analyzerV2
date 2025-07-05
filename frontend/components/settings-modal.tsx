@@ -46,7 +46,7 @@ export function SettingsModal({
 }: SettingsModalProps) {
   const updateSetting = <K extends keyof AnalysisSettings>(
     key: K,
-    value: AnalysisSettings[K],
+    value: AnalysisSettings[K]
   ) => {
     onSettingsChange({ ...settings, [key]: value });
   };
@@ -70,7 +70,7 @@ export function SettingsModal({
             <Input
               id="directory"
               value={settings.directory}
-              onChange={(e) => updateSetting("directory", e.target.value)}
+              onChange={e => updateSetting("directory", e.target.value)}
               placeholder="Enter directory path..."
             />
           </div>
@@ -111,7 +111,7 @@ export function SettingsModal({
             <Label htmlFor="limit">Image Limit</Label>
             <Select
               value={settings.limit.toString()}
-              onValueChange={(value) =>
+              onValueChange={value =>
                 updateSetting("limit", Number.parseInt(value))
               }
             >
@@ -133,9 +133,7 @@ export function SettingsModal({
               <Switch
                 id="recursive"
                 checked={settings.recursive}
-                onCheckedChange={(checked) =>
-                  updateSetting("recursive", checked)
-                }
+                onCheckedChange={checked => updateSetting("recursive", checked)}
               />
             </div>
 
@@ -144,7 +142,7 @@ export function SettingsModal({
               <Switch
                 id="skip_duplicates"
                 checked={settings.skip_duplicates}
-                onCheckedChange={(checked) =>
+                onCheckedChange={checked =>
                   updateSetting("skip_duplicates", checked)
                 }
               />
@@ -155,7 +153,7 @@ export function SettingsModal({
               <Switch
                 id="skip_aesthetics"
                 checked={settings.skip_aesthetics}
-                onCheckedChange={(checked) =>
+                onCheckedChange={checked =>
                   updateSetting("skip_aesthetics", checked)
                 }
               />

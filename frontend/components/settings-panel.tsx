@@ -52,7 +52,7 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const updateSetting = <K extends keyof AnalysisSettings>(
     key: K,
-    value: AnalysisSettings[K],
+    value: AnalysisSettings[K]
   ) => {
     onSettingsChange({ ...settings, [key]: value });
   };
@@ -87,7 +87,7 @@ export function SettingsPanel({
                 <Input
                   id="directory"
                   value={settings.directory}
-                  onChange={(e) => updateSetting("directory", e.target.value)}
+                  onChange={e => updateSetting("directory", e.target.value)}
                   placeholder="Enter the path to your image directory..."
                   className="mt-1"
                 />
@@ -104,7 +104,7 @@ export function SettingsPanel({
                 <Switch
                   id="recursive"
                   checked={settings.recursive}
-                  onCheckedChange={(checked) =>
+                  onCheckedChange={checked =>
                     updateSetting("recursive", checked)
                   }
                 />
@@ -195,7 +195,7 @@ export function SettingsPanel({
                 <Switch
                   id="skip_duplicates"
                   checked={settings.skip_duplicates}
-                  onCheckedChange={(checked) =>
+                  onCheckedChange={checked =>
                     updateSetting("skip_duplicates", checked)
                   }
                 />
@@ -216,7 +216,7 @@ export function SettingsPanel({
                 <Switch
                   id="skip_aesthetics"
                   checked={settings.skip_aesthetics}
-                  onCheckedChange={(checked) =>
+                  onCheckedChange={checked =>
                     updateSetting("skip_aesthetics", checked)
                   }
                 />
@@ -238,7 +238,7 @@ export function SettingsPanel({
               </Label>
               <Select
                 value={settings.limit.toString()}
-                onValueChange={(value) =>
+                onValueChange={value =>
                   updateSetting("limit", Number.parseInt(value))
                 }
               >

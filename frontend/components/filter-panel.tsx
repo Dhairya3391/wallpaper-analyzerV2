@@ -69,7 +69,7 @@ export function FilterPanel({
               {clusters.reduce((sum, cluster) => sum + cluster.size, 0)})
             </Button>
 
-            {clusters.map((cluster) => (
+            {clusters.map(cluster => (
               <Button
                 key={cluster.id}
                 variant={

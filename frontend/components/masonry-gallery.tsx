@@ -1,9 +1,16 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+} from "react";
 import { motion } from "framer-motion";
-import { LazyLoadImage } from "react-lazy-load-image-component";
-import { Masonry } from "masonic";
+import { useInView } from "react-intersection-observer";
+import { useSpring, animated } from "@react-spring/web";
+import Image from "next/image";
 import Lightbox from "yet-another-react-lightbox";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
@@ -11,7 +18,7 @@ import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen";
 import "yet-another-react-lightbox/styles.css";
 import "yet-another-react-lightbox/plugins/thumbnails.css";
 import { Card } from "@/components/ui/card";
-
+import { LoadingSpinner } from "@/components/loading-spinner";
 import { cn } from "@/lib/utils";
 
 export interface MasonryGalleryProps {
@@ -23,14 +30,18 @@ export interface MasonryGalleryProps {
   enableFullscreen?: boolean;
   columnGutter?: number;
   columnWidth?: number;
-  overscanBy?: number;
+  loadingStrategy?: "lazy" | "eager" | "progressive";
+  placeholderType?: "skeleton" | "blur" | "color";
 }
 
-interface ImageItem {
+interface VirtualizedItem {
   id: string;
   src: string;
   alt: string;
   index: number;
+  top: number;
+  height: number;
+  width: number;
 }
 
 const MasonryGallery: React.FC<MasonryGalleryProps> = ({
@@ -42,37 +53,94 @@ const MasonryGallery: React.FC<MasonryGalleryProps> = ({
   enableFullscreen = true,
   columnGutter = 16,
   columnWidth = 300,
-  overscanBy = 2,
+  loadingStrategy = "lazy",
+  placeholderType = "skeleton",
 }) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+  const [imageDimensions, setImageDimensions] = useState<
+    Map<string, { width: number; height: number }>
+  >(new Map());
+  const [columns, setColumns] = useState<VirtualizedItem[][]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const items = useMemo(
     () =>
       images
-        .filter((src) => src && typeof src === "string" && src.trim() !== "")
+        .filter(src => src && typeof src === "string" && src.trim() !== "")
         .map((src, index) => ({
           id: `image-${index}`,
           src,
           alt: `Gallery image ${index + 1}`,
           index,
         })),
-    [images],
+    [images]
   );
 
   // Lightbox images
   const lightboxImages = useMemo(
     () =>
       images
-        .filter((src) => src && typeof src === "string" && src.trim() !== "")
+        .filter(src => src && typeof src === "string" && src.trim() !== "")
         .map((src, index) => ({ src, alt: `Image ${index + 1}` })),
-    [images],
+    [images]
   );
+
+  // Calculate masonry layout
+  useEffect(() => {
+    if (!containerRef.current || items.length === 0) return;
+
+    const containerWidth = containerRef.current.offsetWidth;
+    const numColumns = Math.floor(
+      containerWidth / (columnWidth + columnGutter)
+    );
+    const actualColumnWidth =
+      (containerWidth - (numColumns - 1) * columnGutter) / numColumns;
+
+    const columnHeights = new Array(numColumns).fill(0);
+    const newColumns: VirtualizedItem[][] = Array.from(
+      { length: numColumns },
+      () => []
+    );
+
+    items.forEach(item => {
+      // Find shortest column
+      const shortestColumnIndex = columnHeights.indexOf(
+        Math.min(...columnHeights)
+      );
+
+      const dimensions = imageDimensions.get(item.id);
+      const height = dimensions
+        ? (dimensions.height / dimensions.width) * actualColumnWidth
+        : 200; // Default height
+
+      const virtualizedItem: VirtualizedItem = {
+        ...item,
+        top: columnHeights[shortestColumnIndex],
+        height,
+        width: actualColumnWidth,
+      };
+
+      newColumns[shortestColumnIndex].push(virtualizedItem);
+      columnHeights[shortestColumnIndex] += height + columnGutter;
+    });
+
+    setColumns(newColumns);
+  }, [items, imageDimensions, columnWidth, columnGutter]);
 
   const handleImageClick = useCallback((index: number) => {
     setCurrentImageIndex(index);
     setLightboxOpen(true);
   }, []);
+
+  const handleImageLoad = useCallback(
+    (id: string, width: number, height: number) => {
+      setLoadedImages(prev => new Set(prev).add(id));
+      setImageDimensions(prev => new Map(prev).set(id, { width, height }));
+    },
+    []
+  );
 
   const plugins = useMemo(() => {
     const pluginList = [];
@@ -84,24 +152,27 @@ const MasonryGallery: React.FC<MasonryGalleryProps> = ({
 
   return (
     <div className={cn("w-full", className)}>
-      {items.length > 0 && (
-        <Masonry
-          items={items}
-          columnWidth={columnWidth}
-          columnGutter={columnGutter}
-          overscanBy={overscanBy}
-          render={({ data }: { data: ImageItem }) => (
-            <MasonryImageItem
-              key={data.id}
-              src={data.src}
-              alt={data.alt}
-              index={data.index}
-              aspectRatio={aspectRatio}
-              onClick={() => handleImageClick(data.index)}
-            />
-          )}
-        />
-      )}
+      <div ref={containerRef} className="relative">
+        <div className="flex gap-4">
+          {columns.map((column, columnIndex) => (
+            <div key={columnIndex} className="flex-1">
+              {column.map(item => (
+                <MasonryImageItem
+                  key={item.id}
+                  item={item}
+                  aspectRatio={aspectRatio}
+                  onClick={() => handleImageClick(item.index)}
+                  onLoad={handleImageLoad}
+                  isLoaded={loadedImages.has(item.id)}
+                  loadingStrategy={loadingStrategy}
+                  placeholderType={placeholderType}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
       <Lightbox
         open={lightboxOpen}
         close={() => setLightboxOpen(false)}
@@ -137,40 +208,39 @@ const MasonryGallery: React.FC<MasonryGalleryProps> = ({
 };
 
 interface MasonryImageItemProps {
-  src: string;
-  alt: string;
-  index: number;
+  item: VirtualizedItem;
   aspectRatio: "square" | "auto" | "video";
   onClick: () => void;
+  onLoad: (id: string, width: number, height: number) => void;
+  isLoaded: boolean;
+  loadingStrategy: "lazy" | "eager" | "progressive";
+  placeholderType: "skeleton" | "blur" | "color";
 }
 
 const MasonryImageItem: React.FC<MasonryImageItemProps> = ({
-  src,
-  alt,
-  index,
+  item,
   aspectRatio,
   onClick,
+  onLoad,
+  isLoaded,
+  loadingStrategy,
+  placeholderType,
 }) => {
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [imageHeight, setImageHeight] = useState<number | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  // Timeout fallback: mark error if the image hasn’t loaded within 8 s (stable across re-renders)
-  useEffect(() => {
-    // Only set the timer once – on mount
-    timerRef.current = setTimeout(() => {
-      setHasError(true);
-      setIsLoaded(true);
-    }, 8000);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
+  const [inView] = useInView({
+    threshold: 0.1,
+    rootMargin: "50px",
+    triggerOnce: true,
+  });
 
-  // Safety check for invalid src
-  if (!src || typeof src !== "string" || src.trim() === "") {
-    return null;
-  }
+  const shouldLoad = loadingStrategy === "eager" || inView;
+
+  const { opacity, scale } = useSpring({
+    opacity: isLoaded ? 1 : 0,
+    scale: isLoaded ? 1 : 0.95,
+    config: { tension: 300, friction: 30 },
+  });
 
   const aspectRatioClasses = {
     square: "aspect-square",
@@ -179,23 +249,31 @@ const MasonryImageItem: React.FC<MasonryImageItemProps> = ({
   };
 
   const handleLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setIsLoaded(true);
-    if (aspectRatio === "auto") {
-      const img = event.currentTarget;
-      const ratio = img.naturalHeight / img.naturalWidth;
-      setImageHeight(img.offsetWidth * ratio);
-    }
+    setIsLoading(false);
+    const img = event.currentTarget;
+    onLoad(item.id, img.naturalWidth, img.naturalHeight);
   };
 
   const handleError = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    setIsLoading(false);
     setHasError(true);
-    setIsLoaded(true);
   };
 
-  const containerStyle =
-    aspectRatio === "auto" && imageHeight ? { height: imageHeight } : undefined;
+  const renderPlaceholder = () => {
+    switch (placeholderType) {
+      case "skeleton":
+        return (
+          <div className="w-full h-full bg-gradient-to-br from-muted/50 to-muted/30 animate-pulse">
+            <div className="w-full h-full bg-muted/20 animate-shimmer" />
+          </div>
+        );
+      case "blur":
+        return <div className="w-full h-full bg-muted/30 backdrop-blur-sm" />;
+      case "color":
+      default:
+        return <div className="w-full h-full bg-muted/20" />;
+    }
+  };
 
   return (
     <motion.div
@@ -203,11 +281,11 @@ const MasonryImageItem: React.FC<MasonryImageItemProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{
         duration: 0.3,
-        delay: Math.min(index * 0.02, 0.5), // Cap the delay to prevent long animations
+        delay: Math.min(item.index * 0.02, 0.5),
         ease: "easeOut",
       }}
       className="relative group mb-4"
-      style={containerStyle}
+      style={{ height: item.height }}
     >
       <Card className="overflow-hidden cursor-pointer border-0 shadow-sm hover:shadow-lg transition-all duration-300 h-full">
         <motion.div
@@ -218,9 +296,9 @@ const MasonryImageItem: React.FC<MasonryImageItemProps> = ({
           {/* Loading Skeleton */}
           {!isLoaded && (
             <div
-              className={cn("w-full bg-muted/30", aspectRatioClasses[aspectRatio])}
+              className={cn("w-full h-full", aspectRatioClasses[aspectRatio])}
             >
-              {/* static placeholder without pulse */}
+              {renderPlaceholder()}
             </div>
           )}
 
@@ -228,8 +306,8 @@ const MasonryImageItem: React.FC<MasonryImageItemProps> = ({
           {hasError && (
             <div
               className={cn(
-                "w-full bg-muted flex items-center justify-center",
-                aspectRatioClasses[aspectRatio],
+                "w-full h-full bg-muted flex items-center justify-center",
+                aspectRatioClasses[aspectRatio]
               )}
             >
               <div className="flex flex-col items-center justify-center gap-2 p-4 text-center">
@@ -247,32 +325,40 @@ const MasonryImageItem: React.FC<MasonryImageItemProps> = ({
                     d="M6 18L18 6M6 6l12 12"
                   />
                 </svg>
-                <span className="text-sm font-medium text-destructive">Failed to load</span>
+                <span className="text-sm font-medium text-destructive">
+                  Failed to load
+                </span>
               </div>
             </div>
           )}
 
           {/* Image */}
-          {!hasError && (
-            <div
+          {!hasError && shouldLoad && (
+            <animated.div
+              style={{ opacity, transform: scale.to(s => `scale(${s})`) }}
               className={cn(
-                "relative overflow-hidden",
-                aspectRatioClasses[aspectRatio],
+                "relative overflow-hidden w-full h-full",
+                aspectRatioClasses[aspectRatio]
               )}
             >
-              <LazyLoadImage
-                src={src}
-                alt={alt}
-                effect="blur"
+              <Image
+                src={item.src}
+                alt={item.alt}
+                width={item.width}
+                height={item.height}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 onLoad={handleLoad}
                 onError={handleError}
-                placeholder={
-                  <div className="w-full h-full bg-muted/20" />
-                }
-                threshold={100}
-                wrapperClassName="w-full h-full"
+                loading={loadingStrategy === "lazy" ? "lazy" : "eager"}
+                decoding="async"
               />
+
+              {/* Loading Overlay */}
+              {isLoading && (
+                <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
+                  <LoadingSpinner variant="dots" size="small" />
+                </div>
+              )}
 
               {/* Overlay */}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
@@ -298,6 +384,15 @@ const MasonryImageItem: React.FC<MasonryImageItemProps> = ({
                   </svg>
                 </div>
               </motion.div>
+            </animated.div>
+          )}
+
+          {/* Progressive Loading Placeholder */}
+          {!hasError && !shouldLoad && (
+            <div
+              className={cn("w-full h-full", aspectRatioClasses[aspectRatio])}
+            >
+              {renderPlaceholder()}
             </div>
           )}
         </motion.div>

@@ -41,7 +41,7 @@ export function ThemeToggle() {
     setMounted(true);
   }, []);
 
-  const currentTheme = themes.find((t) => t.name === theme) || themes[0];
+  const currentTheme = themes.find(t => t.name === theme) || themes[0];
 
   if (!mounted) {
     return (
@@ -83,7 +83,7 @@ export function ThemeToggle() {
         className="w-48 glass border-border/50"
         sideOffset={8}
       >
-        {themes.map((themeOption) => (
+        {themes.map(themeOption => (
           <DropdownMenuItem
             key={themeOption.name}
             onClick={() =>

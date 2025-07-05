@@ -6,7 +6,7 @@ import { Search, X, Filter, TrendingUp, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const MotionButton = motion(Button);
+const MotionButton = motion.create(Button);
 
 interface ClusterData {
   id: number;
@@ -77,7 +77,7 @@ export function FilterTabs({
             type="text"
             placeholder="Search images..."
             value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
+            onChange={e => onSearchChange(e.target.value)}
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
             className="pl-12 pr-12 py-3 rounded-2xl glass border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-200 placeholder:text-muted-foreground/60"

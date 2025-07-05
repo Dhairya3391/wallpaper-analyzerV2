@@ -19,7 +19,7 @@ const sidebarVariants = cva(
     defaultVariants: {
       state: "open",
     },
-  },
+  }
 );
 
 export interface SidebarProps
@@ -41,7 +41,7 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
         ref={ref}
         className={cn(
           sidebarVariants({ state: isOpen ? "open" : "closed" }),
-          className,
+          className
         )}
         {...props}
       >
@@ -57,14 +57,14 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
         <div
           className={cn(
             "transition-opacity duration-300",
-            isOpen ? "opacity-100" : "opacity-0",
+            isOpen ? "opacity-100" : "opacity-0"
           )}
         >
           {isOpen && children}
         </div>
       </div>
     );
-  },
+  }
 );
 Sidebar.displayName = "Sidebar";
 
