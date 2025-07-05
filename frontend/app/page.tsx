@@ -14,7 +14,8 @@ import { EmptyState } from "@/components/empty-state";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { useDebounce } from "@/hooks/use-debounce";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 interface ImageData {
   path: string;
@@ -42,7 +43,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
-  
+
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -88,11 +89,11 @@ export default function Home() {
     const startIndex = (currentPage - 1) * IMAGES_PER_PAGE;
     const endIndex = startIndex + IMAGES_PER_PAGE;
     const newImages = filtered.slice(startIndex, endIndex);
-    
+
     if (currentPage === 1) {
       setDisplayedImages(newImages);
     } else {
-      setDisplayedImages(prev => [...prev, ...newImages]);
+      setDisplayedImages((prev) => [...prev, ...newImages]);
     }
   }, [filteredImages, currentPage]);
 
@@ -109,12 +110,12 @@ export default function Home() {
 
   // Infinite scroll hook
   const hasMore = displayedImages.length < filteredImages().length;
-  
+
   useInfiniteScroll({
     target: loadMoreRef,
     onIntersect: () => {
       if (hasMore && !isLoading) {
-        setCurrentPage(prev => prev + 1);
+        setCurrentPage((prev) => prev + 1);
       }
     },
     enabled: hasMore && !isLoading,
@@ -149,16 +150,19 @@ export default function Home() {
       // Extract clusters
       const clusterMap = new Map<number, number>();
       (data.images || []).forEach((img: ImageData) => {
-        const clusterId = typeof img.cluster === "number" ? img.cluster : undefined;
+        const clusterId =
+          typeof img.cluster === "number" ? img.cluster : undefined;
         if (clusterId !== undefined && clusterId !== -1) {
           clusterMap.set(clusterId, (clusterMap.get(clusterId) || 0) + 1);
         }
       });
 
-      const clustersArr = Array.from(clusterMap.entries()).map(([id, size]) => ({
-        id,
-        size,
-      }));
+      const clustersArr = Array.from(clusterMap.entries()).map(
+        ([id, size]) => ({
+          id,
+          size,
+        })
+      );
 
       setClusters(clustersArr);
       setCurrentPage(1);
@@ -191,11 +195,9 @@ export default function Home() {
             >
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-professional-heading mb-8 leading-tight">
                 Beautiful wallpapers,{" "}
-                <span className="gradient-text">
-                  organized by AI
-                </span>
+                <span className="gradient-text">organized by AI</span>
               </h1>
-              
+
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -316,17 +318,16 @@ export default function Home() {
 
               {/* Load More Trigger */}
               {hasMore && (
-                <div
-                  ref={loadMoreRef}
-                  className="flex justify-center py-16"
-                >
+                <div ref={loadMoreRef} className="flex justify-center py-16">
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="flex items-center gap-3 px-6 py-3 glass rounded-full border border-border/50"
                   >
                     <LoadingSpinner />
-                    <span className="text-sm text-professional-muted">Loading more images...</span>
+                    <span className="text-sm text-professional-muted">
+                      Loading more images...
+                    </span>
                   </motion.div>
                 </div>
               )}
