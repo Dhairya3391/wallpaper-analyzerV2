@@ -1,0 +1,40 @@
+{
+  "name": "wallyzer",
+  "version": "1.0.0",
+  "description": "AI-powered wallpaper management system with advanced computer vision and deep learning",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "python wallyzer.py",
+    "dev:frontend": "cd frontend && pnpm dev",
+    "build": "cd frontend && pnpm build",
+    "start": "cd frontend && pnpm start",
+    "install:all": "pip install -r requirements.txt && cd frontend && pnpm install",
+    "clean": "rm -rf frontend/.next frontend/out __pycache__ *.pyc",
+    "lint": "cd frontend && pnpm lint",
+    "format": "cd frontend && pnpm format"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "ai",
+    "image-analysis",
+    "wallpaper",
+    "computer-vision",
+    "deep-learning",
+    "python",
+    "nextjs",
+    "react"
+  ],
+  "author": "Dhairya",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dhairya3391/wallyzer.git"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "python": ">=3.8.0"
+  }
+} 

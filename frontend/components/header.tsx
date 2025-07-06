@@ -58,7 +58,7 @@ export function Header({ onSettingsClick }: HeaderProps) {
           >
             {!isMobile && (
               <a
-                href="https://github.com/Dhairya3391/wallpaper-analyzerV2"
+                href="https://github.com/Dhairya3391/wallyzer"
                 target="_blank"
                 rel="noopener noreferrer"
               >

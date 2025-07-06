@@ -9,11 +9,11 @@ import {
   Hash,
 } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -54,22 +54,23 @@ export function SettingsPanel({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={`${isMobile ? "max-w-full mx-4" : "max-w-2xl"} max-h-[90vh] overflow-y-auto`}
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className={`${isMobile ? "w-full" : "w-[400px]"} overflow-y-auto`}
       >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
+        <SheetHeader className="pb-6">
+          <SheetTitle className="flex items-center gap-2 text-xl">
             <Settings2 className="w-6 h-6" />
             Analysis Settings
-          </DialogTitle>
-        </DialogHeader>
+          </SheetTitle>
+        </SheetHeader>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
-          className="space-y-8 py-4"
+          className="space-y-8"
         >
           {/* Directory Settings */}
           <div className="space-y-4">
@@ -251,7 +252,7 @@ export function SettingsPanel({
             </div>
           </div>
         </motion.div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

@@ -14,7 +14,6 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 import hashlib
 import platform
-import time
 from typing import Dict, List, Tuple, Optional, Any, Union
 from tqdm import tqdm
 import concurrent.futures
@@ -66,7 +65,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=handlers
 )
-logger = logging.getLogger('WallpaperAnalyzer')
+logger = logging.getLogger('Wallyzer')
 
 # Ensure cache directory exists
 os.makedirs(CACHE_DIR, exist_ok=True)
@@ -233,8 +232,6 @@ def safe_convert_numpy(obj):
         return tuple(safe_convert_numpy(item) for item in obj)
     else:
         return obj
-
-
 
 def safe_json_dump(data: Any, file_path: str) -> bool:
     """Safely dump data to JSON file with proper error handling"""
@@ -548,10 +545,9 @@ def process_images_multithreaded(image_paths: List[str], process_type: str = 'fe
     
     return results
 
-
-
-def find_duplicates_multithreaded(image_paths: List[str], threshold: float = DEFAULT_SIMILARITY_THRESHOLD) -> List[List[str]]:
-    """Find duplicate images using multithreading"""
+def find_duplicates_multithreaded(image_paths: List[str], threshold: float = DEFAULT_SIMILARITY_THRESHOLD, 
+                                 pre_computed_features: Optional[Dict[str, List[float]]] = None) -> List[List[str]]:
+    """Find duplicate images using multithreading with optional pre-computed features"""
     if not image_paths:
         return []
 
@@ -593,7 +589,12 @@ def find_duplicates_multithreaded(image_paths: List[str], threshold: float = DEF
     # Phase 2: Feature-based comparison for remaining images (if manageable)
     if len(image_paths) <= 1000:
         print("🔍 Computing similarity matrix...")
-        features = process_images_multithreaded(image_paths, 'features')
+        
+        # Use pre-computed features if available, otherwise compute them
+        if pre_computed_features is not None:
+            features = pre_computed_features
+        else:
+            features = process_images_multithreaded(image_paths, 'features')
         
         paths = list(features.keys())
         if paths:
@@ -624,20 +625,6 @@ def find_duplicates_multithreaded(image_paths: List[str], threshold: float = DEF
                     pbar.set_postfix({"groups": len(potential_duplicates)})
 
     return potential_duplicates
-
-
-
-def extract_features_multithreaded(image_paths: List[str]) -> Tuple[np.ndarray, List[str]]:
-    """Extract features from images using multithreading"""
-    features_dict = process_images_multithreaded(image_paths, 'features')
-    
-    if not features_dict:
-        return np.array([]), []
-    
-    valid_paths = list(features_dict.keys())
-    features = np.array([features_dict[path] for path in valid_paths])
-    
-    return features, valid_paths
 
 
 
@@ -708,7 +695,15 @@ def find_optimal_k_elbow(features: np.ndarray, max_k: int = 10) -> int:
 def cluster_images_kmeans(image_paths: List[str], n_clusters: Optional[int] = None) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Any]]:
     """Cluster images using KMeans with multithreading"""
     print("📊 Clustering images using KMeans...")
-    features, valid_paths = extract_features_multithreaded(image_paths)
+    
+    # Use process_images_multithreaded directly instead of the wrapper
+    features_dict = process_images_multithreaded(image_paths, 'features')
+    
+    if not features_dict:
+        return {}, {}
+    
+    valid_paths = list(features_dict.keys())
+    features = np.array([features_dict[path] for path in valid_paths])
     
     if len(features) == 0:
         return {}, {}
@@ -799,7 +794,6 @@ def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMI
                      skip_duplicates: bool = False, skip_aesthetics: bool = False, limit: int = 0,
                      n_clusters: Optional[int] = None) -> Dict[str, Any]:
     """Analyze a directory of images using functional approach with robust caching"""
-    t0 = time.time()
     
     print(f"📁 Analyzing directory: {directory}")
     
@@ -920,14 +914,11 @@ def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMI
     features.update(cached_features)
     scores.update(cached_scores)
     
-    t1 = time.time()
-    
     # 7. Duplicate detection
     duplicates = []
     if not skip_duplicates:
-        duplicates = find_duplicates_multithreaded(all_image_paths, threshold=similarity_threshold)
-    
-    t2 = time.time()
+        # Pass pre-computed features to avoid redundant processing
+        duplicates = find_duplicates_multithreaded(all_image_paths, threshold=similarity_threshold, pre_computed_features=features)
     
     # 8. Clustering
     clusters = {}
@@ -935,14 +926,8 @@ def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMI
     if not skip_aesthetics:
         clusters, cluster_features = cluster_images_kmeans(all_image_paths, n_clusters)
     
-    t3 = time.time()
-    
     # 9. Aesthetic scoring (already done above)
     aesthetic_scores = scores
-    
-    t4 = time.time()
-    
-    print(f"⏱️  Timing: loading: {t1-t0:.1f}s, duplicates: {t2-t1:.1f}s, clustering: {t3-t2:.1f}s, total: {t4-t0:.1f}s")
     
     # 10. Prepare full results (without limit)
     full_results = {
@@ -984,118 +969,74 @@ def analyze_directory(directory: str, similarity_threshold: float = DEFAULT_SIMI
     return results
 
 def format_results_for_frontend(results: Dict[str, Any]) -> Dict[str, Any]:
-    """Format analysis results for frontend display with proper JSON serialization"""
+    """Format analysis results for frontend display - simplified to only build images list"""
     try:
         images = []
-        clusters = []
-        duplicates = []
-        low_aesthetic = []
         
-        # Create a set of all duplicate paths for quick lookup
+        # Create lookup maps for efficient processing
         duplicate_paths = set()
         for group in results['duplicates']:
             duplicate_paths.update(group)
         
-        # Process clusters
-        total_clusters = len(results['clusters'])
-        if total_clusters > 10:  # Only show progress for large datasets
-            print("📊 Formatting cluster data...")
-            with tqdm(results['clusters'].items(), desc="Processing clusters", unit="cluster", ncols=80) as pbar:
-                for cluster_id, cluster_data in pbar:
-                    clusters.append({
-                        'id': int(cluster_id),
-                        'size': int(cluster_data['size']),
-                        'representative': cluster_data['representative'],
-                        'paths': cluster_data['paths']
-                    })
-                    
-                    # Add images from this cluster
-                    for path in cluster_data['paths']:
-                        images.append({
-                            'path': path,
-                            'cluster': int(cluster_id),
-                            'cluster_size': int(cluster_data['size']),
-                            'is_duplicate': path in duplicate_paths,
-                            'is_low_aesthetic': float(results['aesthetic_scores'].get(path, 0)) < DEFAULT_AESTHETIC_THRESHOLD,
-                            'aesthetic_score': float(results['aesthetic_scores'].get(path, 0))
-                        })
-                    pbar.set_postfix({"size": len(cluster_data['paths'])})
-        else:
-            # Process clusters without progress bar for small datasets
-            for cluster_id, cluster_data in results['clusters'].items():
-                clusters.append({
-                    'id': int(cluster_id),
-                    'size': int(cluster_data['size']),
-                    'representative': cluster_data['representative'],
-                    'paths': cluster_data['paths']
-                })
-                
-                # Add images from this cluster
-                for path in cluster_data['paths']:
-                    images.append({
-                        'path': path,
-                        'cluster': int(cluster_id),
-                        'cluster_size': int(cluster_data['size']),
-                        'is_duplicate': path in duplicate_paths,
-                        'is_low_aesthetic': float(results['aesthetic_scores'].get(path, 0)) < DEFAULT_AESTHETIC_THRESHOLD,
-                        'aesthetic_score': float(results['aesthetic_scores'].get(path, 0))
-                    })
+        cluster_lookup = {}
+        for cluster_id, cluster_data in results['clusters'].items():
+            cluster_lookup[cluster_id] = {
+                'size': int(cluster_data['size']),
+                'paths': set(cluster_data['paths'])
+            }
         
-        # Process all images that are not in any cluster (noise points)
-        clustered_paths = set()
-        for cluster_data in results['clusters'].values():
-            clustered_paths.update(cluster_data['paths'])
+        # Process all image paths once to build the images list
+        all_paths = results.get('all_image_paths', [])
         
-        # Add images that are not in any cluster
-        unclustered_paths = [path for path in results.get('all_image_paths', []) if path not in clustered_paths]
-        if len(unclustered_paths) > 100:  # Only show progress for large datasets
-            print("📊 Processing unclustered images...")
-            with tqdm(unclustered_paths, desc="Processing unclustered", unit="img", ncols=80) as pbar:
+        if len(all_paths) > 100:  # Only show progress for large datasets
+            print("📊 Formatting results for frontend...")
+            with tqdm(all_paths, desc="Processing images", unit="img", ncols=80) as pbar:
                 for path in pbar:
+                    # Find which cluster this image belongs to
+                    cluster_id = -1  # -1 indicates no cluster
+                    cluster_size = 1
+                    
+                    for cid, cluster_info in cluster_lookup.items():
+                        if path in cluster_info['paths']:
+                            cluster_id = int(cid)
+                            cluster_size = cluster_info['size']
+                            break
+                    
                     images.append({
                         'path': path,
-                        'cluster': -1,  # -1 indicates no cluster (noise point)
-                        'cluster_size': 1,
+                        'cluster': cluster_id,
+                        'cluster_size': cluster_size,
                         'is_duplicate': path in duplicate_paths,
                         'is_low_aesthetic': float(results['aesthetic_scores'].get(path, 0)) < DEFAULT_AESTHETIC_THRESHOLD,
                         'aesthetic_score': float(results['aesthetic_scores'].get(path, 0))
                     })
         else:
             # Process without progress bar for small datasets
-            for path in unclustered_paths:
+            for path in all_paths:
+                # Find which cluster this image belongs to
+                cluster_id = -1  # -1 indicates no cluster
+                cluster_size = 1
+                
+                for cid, cluster_info in cluster_lookup.items():
+                    if path in cluster_info['paths']:
+                        cluster_id = int(cid)
+                        cluster_size = cluster_info['size']
+                        break
+                
                 images.append({
                     'path': path,
-                    'cluster': -1,  # -1 indicates no cluster (noise point)
-                    'cluster_size': 1,
+                    'cluster': cluster_id,
+                    'cluster_size': cluster_size,
                     'is_duplicate': path in duplicate_paths,
                     'is_low_aesthetic': float(results['aesthetic_scores'].get(path, 0)) < DEFAULT_AESTHETIC_THRESHOLD,
                     'aesthetic_score': float(results['aesthetic_scores'].get(path, 0))
                 })
         
-        # Process duplicates
-        for group in results['duplicates']:
-            duplicates.extend(group)
-        
-        # Process low aesthetic images
-        low_aesthetic = results['low_aesthetic']
-        
-        # Ensure all data is JSON serializable
-        formatted_results = {
-            'images': images,
-            'clusters': clusters,
-            'duplicates': duplicates,
-            'low_aesthetic': low_aesthetic
-        }
-        
-        return safe_convert_numpy(formatted_results)
+        # Return only the images list since that's all the frontend needs
+        return safe_convert_numpy({'images': images})
     except Exception as e:
         logger.error(f"Error formatting results: {str(e)}")
-        return {
-            'images': [],
-            'clusters': [],
-            'duplicates': [],
-            'low_aesthetic': []
-        }
+        return {'images': []}
 
 # Flask app initialization
 app = Flask(__name__)
@@ -1233,54 +1174,7 @@ def clear_cache_endpoint():
         logger.error(f"Error clearing cache: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/cluster', methods=['POST'])
-def cluster_images():
-    """Cluster images with custom parameters"""
-    try:
-        data = request.get_json()
-        directory = data.get('directory')
-        n_clusters = data.get('n_clusters')  # Optional, will use elbow method if not provided
-        recursive = bool(data.get('recursive', True))
-        
-        if not directory:
-            return jsonify({'success': False, 'error': 'Directory is required'}), 400
-        
-        # Get image paths
-        image_paths = get_image_paths(directory, recursive)
-        
-        if not image_paths:
-            return jsonify({'success': False, 'error': 'No images found in directory'}), 400
-        
-        # Perform clustering
-        clusters, metadata = cluster_images_kmeans(image_paths, n_clusters)
-        
-        # Format results for frontend
-        formatted_clusters = []
-        for cluster_id, cluster_data in clusters.items():
-            formatted_clusters.append({
-                'id': int(cluster_id),
-                'size': int(cluster_data['size']),
-                'representative': cluster_data['representative'],
-                'paths': cluster_data['paths'],
-                'center': cluster_data.get('center', [])
-            })
-        
-        # Ensure all data is JSON serializable
-        response_data = {
-            'success': True,
-            'clusters': formatted_clusters,
-            'metadata': safe_convert_numpy(metadata),
-            'total_images': int(len(image_paths))
-        }
-        
-        return jsonify(response_data)
-        
-    except Exception as e:
-        logger.error(f"Error during clustering: {str(e)}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+
 
 @app.route('/api/cache/validate', methods=['POST'])
 def validate_cache():
@@ -1325,7 +1219,7 @@ def validate_cache():
 def main():
     """Main entry point for the application"""
     try:
-        print(f"🚀 Wallpaper Analyzer V2 starting...")
+        print(f"🚀 Wallyzer starting...")
         
         # Initialize models with progress
         initialize_models()

@@ -1,4 +1,4 @@
-# 🎨 Wallyzer – Project Summary
+# �� Wallyzer – Project Overview
 
 ## Introduction
 
@@ -8,14 +8,14 @@
 
 ## Key Features
 
-- 🧠 **Smart Duplicate Detection:** Finds visually similar or duplicate images using perceptual hashing and deep learning (MobileNetV2 features).
-- 🌟 **Aesthetic Scoring:** AI models (ResNet18) rate images for visual appeal, helping you surface your best wallpapers.
-- 🗂️ **Image Clustering:** Groups similar wallpapers using K-means clustering on deep features (ResNet50).
-- ⚡ **High Performance:** Optimized for CPU, CUDA, and Apple Silicon (MPS) for fast, scalable analysis.
-- 🌐 **Real-time Web Interface:** Responsive, beautiful UI with live progress updates via WebSocket.
-- 💾 **Result Caching:** Uses SQLite to cache analysis results for instant repeated access.
-- 🔄 **Batch & Recursive Processing:** Efficiently processes large collections, including subdirectories.
-- 🔧 **Configurable:** Fine-tune thresholds, batch size, device selection, and more.
+- 🧠 **Smart Duplicate Detection:** Finds visually similar or duplicate images using perceptual hashing and deep learning (MobileNetV2 features)
+- 🌟 **Aesthetic Scoring:** AI models (ResNet18) rate images for visual appeal, helping you surface your best wallpapers
+- 🗂️ **Image Clustering:** Groups similar wallpapers using K-means clustering on deep features (ResNet50)
+- ⚡ **High Performance:** Optimized for CPU, CUDA, and Apple Silicon (MPS) for fast, scalable analysis
+- 🌐 **Real-time Web Interface:** Responsive, beautiful UI with live progress updates via WebSocket
+- 💾 **Result Caching:** Uses SQLite to cache analysis results for instant repeated access
+- 🔄 **Batch & Recursive Processing:** Efficiently processes large collections, including subdirectories
+- 🔧 **Configurable:** Fine-tune thresholds, batch size, device selection, and more
 
 ---
 
@@ -34,14 +34,14 @@ graph TD
 
 </div>
 
-1. **User selects a directory** via the web UI.
+1. **User selects a directory** via the web UI
 2. **Backend analyzes images:**
    - Detects duplicates (hashing + deep features)
    - Scores aesthetics (ResNet-based model)
    - Clusters images (K-means on ResNet50 features)
-3. **Results are cached** in SQLite for fast repeated access.
-4. **Frontend displays results** with filtering, searching, and cluster navigation.
-5. **User can re-analyze** with new settings or export results.
+3. **Results are cached** in SQLite for fast repeated access
+4. **Frontend displays results** with filtering, searching, and cluster navigation
+5. **User can re-analyze** with new settings or export results
 
 ---
 
@@ -52,7 +52,7 @@ graph TD
 - **Image Processing:** OpenCV, Pillow, scikit-image
 - **Data Processing:** NumPy, SciPy, scikit-learn
 - **Database:** SQLite for result caching
-- **Frontend:** HTML, JavaScript, DaisyUI, Tailwind CSS
+- **Frontend:** Next.js, React, Tailwind CSS, shadcn/ui
 - **Real-time Communication:** WebSockets (Flask-SocketIO, eventlet)
 - **Batch Processing:** Efficient, multi-threaded, device-aware (CPU/CUDA/MPS)
 - **Caching:** Parameter-aware, directory-aware, and content-aware caching for instant repeated analysis
@@ -61,12 +61,12 @@ graph TD
 
 ## Unique Selling Points
 
-- Handles thousands of images with ease—scalable and robust.
-- No manual sorting—AI does the heavy lifting.
-- Real-time feedback and beautiful, modern UI.
-- Works on all major platforms (Windows, macOS, Linux, FreeBSD).
-- Highly configurable for power users and researchers.
-- Open source and extensible.
+- Handles thousands of images with ease—scalable and robust
+- No manual sorting—AI does the heavy lifting
+- Real-time feedback and beautiful, modern UI
+- Works on all major platforms (Windows, macOS, Linux)
+- Highly configurable for power users and researchers
+- Open source and extensible
 
 ---
 

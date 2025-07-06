@@ -2,9 +2,10 @@
 
 A powerful and intelligent wallpaper management system that helps you organize, analyze, and optimize your wallpaper collection using advanced AI and computer vision techniques.
 
-![Wallyzer](httpss://img.shields.io/badge/Wallyzer-blue)
-![Python](httpss://img.shields.io/badge/Python-3%2E8%2B-green)
-![License](httpss://img.shields.io/badge/License-MIT-yellow)
+![Python](https://img.shields.io/badge/Python-3.8+-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+![Next.js](https://img.shields.io/badge/Next.js-14+-black)
+![React](https://img.shields.io/badge/React-18+-blue)
 
 ## ✨ Features
 
@@ -47,8 +48,8 @@ A powerful and intelligent wallpaper management system that helps you organize, 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/Dhairya3391/wallpaper-analyzerV2.git
-cd Wallyzer
+git clone https://github.com/Dhairya3391/wallyzer.git
+cd wallyzer
 ```
 
 2. Create a virtual environment (recommended):
@@ -73,7 +74,7 @@ pip-audit
 
 ### Frontend
 
-1. Go to the frontend directory:
+1. Navigate to the frontend directory:
 
 ```bash
 cd frontend
@@ -82,18 +83,35 @@ cd frontend
 2. Install dependencies:
 
 ```bash
-pnpm install  # or npm install or yarn install
+pnpm install
 ```
 
 3. Start the development server:
 
 ```bash
-pnpm dev  # or npm run dev or yarn dev
+pnpm dev
 ```
 
 ## 💻 Usage
 
-### Start the Backend
+### Quick Start (Recommended)
+
+```bash
+# Install all dependencies
+npm run install:all
+
+# Start both backend and frontend
+npm run dev
+```
+
+This will start:
+
+- Backend on [http://localhost:8000](http://localhost:8000)
+- Frontend on [http://localhost:3000](http://localhost:3000)
+
+### Manual Start
+
+#### Start the Backend
 
 ```bash
 python wallyzer.py
@@ -101,18 +119,18 @@ python wallyzer.py
 
 The backend will start on [http://localhost:8000](http://localhost:8000)
 
-### Start the Frontend
+#### Start the Frontend
 
 ```bash
 cd frontend
-pnpm dev  # or npm run dev
+pnpm dev
 ```
 
 The frontend will start on [http://localhost:3000](http://localhost:3000)
 
 ### Analyze Wallpapers
 
-1. Open your browser and go to [http://localhost:3000](http://localhost:3000)
+1. Open your browser and navigate to [http://localhost:3000](http://localhost:3000)
 2. Select a directory containing your wallpapers and start the analysis!
 
 ## ⚙️ Configuration
@@ -132,58 +150,67 @@ The application can be configured through the `Config` class in `wallyzer.py`:
 - `ENABLE_SOCKET_LOGGING`: Socket.IO logging flag
 - `DB_PATH`: Path to SQLite database for caching
 
-You can also use environment variables for deployment flexibility (recommended for production).
+You can also use environment variables for deployment flexibility (recommended for production). Copy `env.example` to `.env` and modify the values as needed.
 
 ## 🧵 Concurrency Model
 
-- The backend uses **eventlet** (green threads) for async I/O and concurrency, which is best for I/O-bound workloads and works well with Flask-SocketIO.
-- For CPU-bound tasks (like image processing), a **ThreadPoolExecutor** is used for parallelism. This hybrid approach is robust for most workloads.
-- If you want pure CPU-bound scaling, consider using multiprocessing, but eventlet is recommended for this web+I/O use case.
+- The backend uses **eventlet** (green threads) for async I/O and concurrency, which is optimal for I/O-bound workloads and works seamlessly with Flask-SocketIO.
+- For CPU-bound tasks (like image processing), a **ThreadPoolExecutor** is used for parallelism. This hybrid approach provides robust performance for most workloads.
+- If you require pure CPU-bound scaling, consider using multiprocessing, though eventlet is recommended for this web+I/O use case.
 
 ## 🗂️ Project Structure
 
 ```
-Wallyzer/
-├── wallyzer.py      # Backend server and analysis logic
-├── requirements.txt          # Python dependencies
-├── frontend/                 # Next.js/React frontend
-│   ├── app/                  # Main app pages
-│   ├── components/           # React components (shadcn/ui, custom)
-│   ├── hooks/                # Custom React hooks
-│   ├── lib/                  # Utilities
+wallyzer/
+├── wallyzer.py              # Backend server and analysis logic
+├── requirements.txt         # Python dependencies
+├── package.json             # Root package.json with scripts
+├── env.example              # Environment variables template
+├── LICENSE                  # MIT License
+├── CONTRIBUTING.md          # Contribution guidelines
+├── CHANGELOG.md             # Project changelog
+├── frontend/               # Next.js/React frontend
+│   ├── app/                # Main app pages
+│   ├── components/         # React components (shadcn/ui, custom)
+│   ├── hooks/              # Custom React hooks
+│   ├── lib/                # Utilities
 │   └── ...
-├── analysis_cache.db         # SQLite cache
-├── analyzed.log              # Log file
-├── README.md                 # This file
+├── analysis_cache.db       # SQLite cache
+├── analyzed.log            # Log file
+├── README.md               # This file
 └── ...
 ```
 
 ## 🧪 Testing & Security
 
-- Run `pip-audit` to check for Python dependency vulnerabilities.
-- Use `pnpm audit` or `npm audit` in the frontend for JS dependency security.
-- Enable ESLint and TypeScript checks in the frontend for best practices.
+- Run `pip-audit` to check for Python dependency vulnerabilities
+- Use `pnpm audit` in the frontend directory for JavaScript dependency security
+- Enable ESLint and TypeScript checks in the frontend for code quality
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+We welcome contributions! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 📋 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a list of changes and version history.
 
 ## 🙏 Acknowledgments
 
-- PyTorch team for the amazing deep learning framework
-- Flask team for the web framework
-- OpenCV and scikit-image teams for image processing capabilities
+- PyTorch team for the exceptional deep learning framework
+- Flask team for the robust web framework
+- OpenCV and scikit-image teams for comprehensive image processing capabilities
+- Next.js team for the powerful React framework
+- shadcn/ui team for the beautiful component library
 
-## 📝 Legacy HTML UI (index.html)
+## 📝 Legacy HTML UI
 
-- The file `index.html` is provided as a backup, legacy UI for users who do not wish to use the Next.js frontend.
-- It no longer supports real-time progress updates (Socket.IO) and only interacts with the backend via REST API endpoints.
-- For the best experience, use the Next.js frontend in the `frontend/` directory.
+The `index.html` file is provided as a legacy UI for users who prefer not to use the Next.js frontend. Note that it no longer supports real-time progress updates (Socket.IO) and only interacts with the backend via REST API endpoints. For the optimal experience, we recommend using the Next.js frontend in the `frontend/` directory.
 
 ---
 
-Made with Passion by Dhairya
+Built with ❤️ by Dhairya
