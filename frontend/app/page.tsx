@@ -58,7 +58,7 @@ export default function Home() {
   const isMobile = useIsMobile();
 
   const [settings, setSettings] = useState({
-    directory: "/Users/dhairya/Downloads/walls",
+    directory: "/Users/dhairya/walls",
     similarity_threshold: 0.85,
     aesthetic_threshold: 0.85,
     recursive: true,
